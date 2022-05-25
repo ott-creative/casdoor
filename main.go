@@ -27,10 +27,11 @@ import (
 	"github.com/casdoor/casdoor/proxy"
 	"github.com/casdoor/casdoor/routers"
 	_ "github.com/casdoor/casdoor/routers"
+	"github.com/casdoor/casdoor/util"
 )
 
 func main() {
-	createDatabase := flag.Bool("createDatabase", false, "true if you need casdoor to create database")
+	createDatabase := flag.Bool("createDatabase", false, "true if you need Casdoor to create database")
 	flag.Parse()
 
 	object.InitAdapter(*createDatabase)
@@ -40,7 +41,7 @@ func main() {
 	proxy.InitHttpClient()
 	authz.InitAuthz()
 
-	go object.RunSyncUsersJob()
+	util.SafeGoroutine(func() {object.RunSyncUsersJob()})
 
 	//beego.DelStaticPath("/static")
 	beego.SetStaticPath("/static", "web/build/static")

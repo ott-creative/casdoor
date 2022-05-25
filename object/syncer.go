@@ -133,7 +133,11 @@ func UpdateSyncer(id string, syncer *Syncer) bool {
 		return false
 	}
 
-	affected, err := adapter.Engine.ID(core.PK{owner, name}).AllCols().Update(syncer)
+	session := adapter.Engine.ID(core.PK{owner, name}).AllCols()
+	if syncer.Password == "***" {
+		session.Omit("password")
+	}
+	affected, err := session.Update(syncer)
 	if err != nil {
 		panic(err)
 	}
@@ -205,4 +209,9 @@ func (syncer *Syncer) getTable() string {
 	} else {
 		return syncer.Table
 	}
+}
+
+func RunSyncer(syncer *Syncer) {
+	syncer.initAdapter()
+	syncer.syncUsers()
 }

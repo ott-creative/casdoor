@@ -21,17 +21,19 @@ import (
 )
 
 func InitDb() {
-	initBuiltInOrganization()
-	initBuiltInUser()
-	initBuiltInApplication()
-	initBuiltInCert()
-	initBuiltInLdap()
+	existed := initBuiltInOrganization()
+	if !existed {
+		initBuiltInUser()
+		initBuiltInApplication()
+		initBuiltInCert()
+		initBuiltInLdap()
+	}
 }
 
-func initBuiltInOrganization() {
+func initBuiltInOrganization() bool {
 	organization := getOrganization("admin", "built-in")
 	if organization != nil {
-		return
+		return true
 	}
 
 	organization = &Organization{
@@ -47,6 +49,7 @@ func initBuiltInOrganization() {
 		Tags:          []string{},
 	}
 	AddOrganization(organization)
+	return false
 }
 
 func initBuiltInUser() {
@@ -106,7 +109,7 @@ func initBuiltInApplication() {
 			{Name: "Display name", Visible: true, Required: true, Prompted: false, Rule: "None"},
 			{Name: "Password", Visible: true, Required: true, Prompted: false, Rule: "None"},
 			{Name: "Confirm password", Visible: true, Required: true, Prompted: false, Rule: "None"},
-			{Name: "Email", Visible: true, Required: true, Prompted: false, Rule: "None"},
+			{Name: "Email", Visible: true, Required: true, Prompted: false, Rule: "Normal"},
 			{Name: "Phone", Visible: true, Required: true, Prompted: false, Rule: "None"},
 			{Name: "Agreement", Visible: true, Required: true, Prompted: false, Rule: "None"},
 		},
@@ -144,7 +147,7 @@ func initBuiltInCert() {
 		DisplayName:     "Built-in Cert",
 		Scope:           "JWT",
 		Type:            "x509",
-		CryptoAlgorithm: "RSA",
+		CryptoAlgorithm: "RS256",
 		BitSize:         4096,
 		ExpireInYears:   20,
 		PublicKey:       tokenJwtPublicKey,

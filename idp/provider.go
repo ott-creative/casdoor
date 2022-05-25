@@ -35,7 +35,7 @@ type IdProvider interface {
 	GetUserInfo(token *oauth2.Token) (*UserInfo, error)
 }
 
-func GetIdProvider(typ string, subType string, clientId string, clientSecret string, appId string, redirectUrl string, hostUrl string) IdProvider {
+func GetIdProvider(typ string, subType string, clientId string, clientSecret string, appId string, redirectUrl string, hostUrl string, authUrl string, tokenUrl string, userInfoUrl string) IdProvider {
 	if typ == "GitHub" {
 		return NewGithubIdProvider(clientId, clientSecret, redirectUrl)
 	} else if typ == "Google" {
@@ -70,6 +70,10 @@ func GetIdProvider(typ string, subType string, clientId string, clientSecret str
 		return NewAdfsIdProvider(clientId, clientSecret, redirectUrl, hostUrl)
 	} else if typ == "Baidu" {
 		return NewBaiduIdProvider(clientId, clientSecret, redirectUrl)
+	} else if typ == "Alipay" {
+		return NewAlipayIdProvider(clientId, clientSecret, redirectUrl)
+	} else if typ == "Custom" {
+		return NewCustomIdProvider(clientId, clientSecret, redirectUrl, authUrl, tokenUrl, userInfoUrl)
 	} else if typ == "Infoflow" {
 		if subType == "Internal" {
 			return NewInfoflowInternalIdProvider(clientId, clientSecret, appId, redirectUrl)
@@ -80,8 +84,14 @@ func GetIdProvider(typ string, subType string, clientId string, clientSecret str
 		}
 	} else if typ == "Casdoor" {
 		return NewCasdoorIdProvider(clientId, clientSecret, redirectUrl, hostUrl)
+	} else if typ == "Okta" {
+		return NewOktaIdProvider(clientId, clientSecret, redirectUrl, hostUrl)
+	} else if typ == "Douyin" {
+		return NewDouyinIdProvider(clientId, clientSecret, redirectUrl)
 	} else if isGothSupport(typ) {
 		return NewGothIdProvider(typ, clientId, clientSecret, redirectUrl)
+	} else if typ == "Bilibili" {
+		return NewBilibiliIdProvider(clientId, clientSecret, redirectUrl)
 	}
 
 	return nil

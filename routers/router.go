@@ -54,6 +54,7 @@ func initAPI() {
 	beego.Router("/api/unlink", &controllers.ApiController{}, "POST:Unlink")
 	beego.Router("/api/get-saml-login", &controllers.ApiController{}, "GET:GetSamlLogin")
 	beego.Router("/api/acs", &controllers.ApiController{}, "POST:HandleSamlLogin")
+	beego.Router("/api/saml/metadata", &controllers.ApiController{}, "GET:GetSamlMeta")
 
 	beego.Router("/api/get-organizations", &controllers.ApiController{}, "GET:GetOrganizations")
 	beego.Router("/api/get-organization", &controllers.ApiController{}, "GET:GetOrganization")
@@ -144,6 +145,7 @@ func initAPI() {
 	beego.Router("/api/update-syncer", &controllers.ApiController{}, "POST:UpdateSyncer")
 	beego.Router("/api/add-syncer", &controllers.ApiController{}, "POST:AddSyncer")
 	beego.Router("/api/delete-syncer", &controllers.ApiController{}, "POST:DeleteSyncer")
+	beego.Router("/api/run-syncer", &controllers.ApiController{}, "GET:RunSyncer")
 
 	beego.Router("/api/get-certs", &controllers.ApiController{}, "GET:GetCerts")
 	beego.Router("/api/get-cert", &controllers.ApiController{}, "GET:GetCert")
@@ -165,10 +167,21 @@ func initAPI() {
 	beego.Router("/api/add-payment", &controllers.ApiController{}, "POST:AddPayment")
 	beego.Router("/api/delete-payment", &controllers.ApiController{}, "POST:DeletePayment")
 	beego.Router("/api/notify-payment/?:owner/?:provider/?:product/?:payment", &controllers.ApiController{}, "POST:NotifyPayment")
+	beego.Router("/api/invoice-payment", &controllers.ApiController{}, "POST:InvoicePayment")
 
 	beego.Router("/api/send-email", &controllers.ApiController{}, "POST:SendEmail")
 	beego.Router("/api/send-sms", &controllers.ApiController{}, "POST:SendSms")
 
 	beego.Router("/.well-known/openid-configuration", &controllers.RootController{}, "GET:GetOidcDiscovery")
 	beego.Router("/.well-known/jwks", &controllers.RootController{}, "*:GetJwks")
+
+	beego.Router("/cas/:organization/:application/serviceValidate", &controllers.RootController{}, "GET:CasServiceValidate")
+	beego.Router("/cas/:organization/:application/proxyValidate", &controllers.RootController{}, "GET:CasProxyValidate")
+	beego.Router("/cas/:organization/:application/proxy", &controllers.RootController{}, "GET:CasProxy")
+	beego.Router("/cas/:organization/:application/validate", &controllers.RootController{}, "GET:CasValidate")
+
+	beego.Router("/cas/:organization/:application/p3/serviceValidate", &controllers.RootController{}, "GET:CasP3ServiceAndProxyValidate")
+	beego.Router("/cas/:organization/:application/p3/proxyValidate", &controllers.RootController{}, "GET:CasP3ServiceAndProxyValidate")
+	beego.Router("/cas/:organization/:application/samlValidate", &controllers.RootController{}, "POST:SamlValidate")
+
 }

@@ -17,7 +17,6 @@ import {Button, Descriptions, Spin} from "antd";
 import i18next from "i18next";
 import * as ProductBackend from "./backend/ProductBackend";
 import * as ProviderBackend from "./backend/ProviderBackend";
-import * as Provider from "./auth/Provider";
 import * as Setting from "./Setting";
 
 class ProductBuyPage extends React.Component {
@@ -83,6 +82,10 @@ class ProductBuyPage extends React.Component {
     }
   }
 
+  getPrice(product) {
+    return `${this.getCurrencySymbol(product)}${product?.price} (${this.getCurrencyText(product)})`;
+  }
+
   getProviders(product) {
     if (this.state.providers.length === 0 || product.providers.length === 0) {
       return [];
@@ -144,7 +147,7 @@ class ProductBuyPage extends React.Component {
 
     return (
       <Button style={{height: "50px", borderWidth: "2px"}} shape="round" icon={
-        <img style={{marginRight: "10px"}} width={36} height={36} src={Provider.getProviderLogo(provider)} alt={provider.displayName} />
+        <img style={{marginRight: "10px"}} width={36} height={36} src={Setting.getProviderLogoURL(provider)} alt={provider.displayName} />
       } size={"large"} >
         {
           text
@@ -207,7 +210,9 @@ class ProductBuyPage extends React.Component {
             </Descriptions.Item>
             <Descriptions.Item label={i18next.t("product:Price")}>
             <span style={{fontSize: 28, color: "red", fontWeight: "bold"}}>
-              {`${this.getCurrencySymbol(product)}${product?.price} (${this.getCurrencyText(product)})`}
+              {
+                this.getPrice(product)
+              }
             </span>
             </Descriptions.Item>
             <Descriptions.Item label={i18next.t("product:Quantity")}><span style={{fontSize: 16}}>{product?.quantity}</span></Descriptions.Item>

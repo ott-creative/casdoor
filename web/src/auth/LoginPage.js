@@ -36,14 +36,18 @@ import LarkLoginButton from "./LarkLoginButton";
 import GitLabLoginButton from "./GitLabLoginButton";
 import AdfsLoginButton from "./AdfsLoginButton";
 import BaiduLoginButton from "./BaiduLoginButton";
+import AlipayLoginButton from "./AlipayLoginButton";
 import CasdoorLoginButton from "./CasdoorLoginButton";
 import InfoflowLoginButton from "./InfoflowLoginButton";
 import AppleLoginButton from "./AppleLoginButton"
 import AzureADLoginButton from "./AzureADLoginButton";
 import SlackLoginButton from "./SlackLoginButton";
 import SteamLoginButton from "./SteamLoginButton";
+import OktaLoginButton from "./OktaLoginButton";
+import DouyinLoginButton from "./DouyinLoginButton";
 import CustomGithubCorner from "../CustomGithubCorner";
 import {CountDownInput} from "../common/CountDownInput";
+import BilibiliLoginButton from "./BilibiliLoginButton";
 
 class LoginPage extends React.Component {
   constructor(props) {
@@ -52,6 +56,7 @@ class LoginPage extends React.Component {
       classes: props,
       type: props.type,
       applicationName: props.applicationName !== undefined ? props.applicationName : (props.match === undefined ? null : props.match.params.applicationName),
+      owner : props.owner !== undefined ? props.owner : (props.match === undefined ? null : props.match.params.owner),
       application: null,
       mode: props.mode !== undefined ? props.mode : (props.match === undefined ? null : props.match.params.mode), // "signup" or "signin"
       isCodeSignin: false,
@@ -61,13 +66,19 @@ class LoginPage extends React.Component {
       validEmail: false,
       validPhone: false,
     };
+    if (this.state.type === "cas" && props.match?.params.casApplicationName !== undefined) {
+      this.state.owner = props.match?.params.owner
+      this.state.applicationName = props.match?.params.casApplicationName
+    }
   }
 
   UNSAFE_componentWillMount() {
-    if (this.state.type === "login") {
+    if (this.state.type === "login" || this.state.type === "cas") {
       this.getApplication();
     } else if (this.state.type === "code") {
       this.getApplicationLogin();
+    } else if (this.state.type === "saml"){
+      this.getSamlApplication();
     } else {
       Util.showMessage("error", `Unknown authentication type: ${this.state.type}`);
     }
@@ -104,6 +115,19 @@ class LoginPage extends React.Component {
       });
   }
 
+  getSamlApplication(){
+    if (this.state.applicationName === null){
+      return;
+    }
+    ApplicationBackend.getApplication(this.state.owner, this.state.applicationName)
+      .then((application) => {
+        this.setState({
+          application: application,
+        });
+      }
+    );
+  }
+
   getApplicationObj() {
     if (this.props.application !== undefined) {
       return this.props.application;
@@ -119,59 +143,98 @@ class LoginPage extends React.Component {
   onFinish(values) {
     const application = this.getApplicationObj();
     const ths = this;
-    const oAuthParams = Util.getOAuthGetParameters();
-    if (oAuthParams !== null && oAuthParams.responseType!= null && oAuthParams.responseType !== "") {
-      values["type"] = oAuthParams.responseType
-    }else{
+
+    //here we are supposed to judge whether casdoor is working as a oauth server or CAS server
+    if (this.state.type === "cas") {
+      //cas
+      const casParams = Util.getCasParameters()
       values["type"] = this.state.type;
-    }
-    values["phonePrefix"] = this.getApplicationObj()?.organizationObj.phonePrefix;
-    
-    AuthBackend.login(values, oAuthParams)
-      .then((res) => {
+      AuthBackend.loginCas(values, casParams).then((res) => {
         if (res.status === 'ok') {
-          const responseType = values["type"];
-          if (responseType === "login") {
-            Util.showMessage("success", `Logged in successfully`);
-
-            const link = Setting.getFromLink();
-            Setting.goToLink(link);
-          } else if (responseType === "code") {
-            const code = res.data;
-            const concatChar = oAuthParams?.redirectUri?.includes('?') ? '&' : '?';
-
-            if (Setting.hasPromptPage(application)) {
-              AuthBackend.getAccount("")
-                .then((res) => {
-                  let account = null;
-                  if (res.status === "ok") {
-                    account = res.data;
-                    account.organization = res.data2;
-
-                    this.onUpdateAccount(account);
-
-                    if (Setting.isPromptAnswered(account, application)) {
-                      Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}code=${code}&state=${oAuthParams.state}`);
-                    } else {
-                      Setting.goToLinkSoft(ths, `/prompt/${application.name}?redirectUri=${oAuthParams.redirectUri}&code=${code}&state=${oAuthParams.state}`);
-                    }
-                  } else {
-                    Setting.showMessage("error", `Failed to sign in: ${res.msg}`);
-                  }
-                });
-            } else {
-              Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}code=${code}&state=${oAuthParams.state}`);
-            }
-
-            // Util.showMessage("success", `Authorization code: ${res.data}`);
-          } else if (responseType === "token" || responseType === "id_token") {
-            const accessToken = res.data;
-            Setting.goToLink(`${oAuthParams.redirectUri}#${responseType}=${accessToken}?state=${oAuthParams.state}&token_type=bearer`);
+          let msg = "Logged in successfully. "
+          if (casParams.service === "") {
+            //If service was not specified, CAS MUST display a message notifying the client that it has successfully initiated a single sign-on session.
+            msg += "Now you can visit apps protected by casdoor."
           }
+          Util.showMessage("success", msg);
+          if (casParams.service !== "") {
+            let st = res.data
+            window.location.href = casParams.service + "?ticket=" + st
+          }
+
         } else {
           Util.showMessage("error", `Failed to log in: ${res.msg}`);
         }
-      });
+      })
+    } else {
+      //oauth
+      const oAuthParams = Util.getOAuthGetParameters();
+      if (oAuthParams !== null && oAuthParams.responseType != null && oAuthParams.responseType !== "") {
+        values["type"] = oAuthParams.responseType
+      }else{
+        values["type"] = this.state.type;
+      }
+      values["phonePrefix"] = this.getApplicationObj()?.organizationObj.phonePrefix;
+
+      if (oAuthParams !== null){
+        values["samlRequest"] = oAuthParams.samlRequest;
+      }
+      
+  
+      if (values["samlRequest"] != null && values["samlRequest"] !== "") {
+          values["type"] = "saml";
+      }
+  
+      AuthBackend.login(values, oAuthParams)
+        .then((res) => {
+          if (res.status === 'ok') {
+            const responseType = values["type"];
+            if (responseType === "login") {
+              Util.showMessage("success", `Logged in successfully`);
+
+              const link = Setting.getFromLink();
+              Setting.goToLink(link);
+            } else if (responseType === "code") {
+              const code = res.data;
+              const concatChar = oAuthParams?.redirectUri?.includes('?') ? '&' : '?';
+
+              if (Setting.hasPromptPage(application)) {
+                AuthBackend.getAccount("")
+                  .then((res) => {
+                    let account = null;
+                    if (res.status === "ok") {
+                      account = res.data;
+                      account.organization = res.data2;
+
+                      this.onUpdateAccount(account);
+
+                      if (Setting.isPromptAnswered(account, application)) {
+                        Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}code=${code}&state=${oAuthParams.state}`);
+                      } else {
+                        Setting.goToLinkSoft(ths, `/prompt/${application.name}?redirectUri=${oAuthParams.redirectUri}&code=${code}&state=${oAuthParams.state}`);
+                      }
+                    } else {
+                      Setting.showMessage("error", `Failed to sign in: ${res.msg}`);
+                    }
+                  });
+              } else {
+                Setting.goToLink(`${oAuthParams.redirectUri}${concatChar}code=${code}&state=${oAuthParams.state}`);
+              }
+
+              // Util.showMessage("success", `Authorization code: ${res.data}`);
+            } else if (responseType === "token" || responseType === "id_token") {
+              const accessToken = res.data;
+              Setting.goToLink(`${oAuthParams.redirectUri}#${responseType}=${accessToken}?state=${oAuthParams.state}&token_type=bearer`);
+            } else if (responseType === "saml") {
+              const SAMLResponse = res.data;
+              const redirectUri = res.data2;
+              Setting.goToLink(`${redirectUri}?SAMLResponse=${encodeURIComponent(SAMLResponse)}&RelayState=${oAuthParams.relayState}`);
+            }
+          } else {
+            Util.showMessage("error", `Failed to log in: ${res.msg}`);
+          }
+        });
+      }
   };
 
   getSigninButton(type) {
@@ -206,6 +269,8 @@ class LoginPage extends React.Component {
       return <CasdoorLoginButton text={text} align={"center"} />
     } else if (type === "Baidu") {
       return <BaiduLoginButton text={text} align={"center"} />
+    } else if (type === "Alipay") {
+      return <AlipayLoginButton text={text} align={"center"} />
     } else if (type === "Infoflow") {
       return <InfoflowLoginButton text={text} align={"center"} />
     } else if (type === "Apple") {
@@ -216,6 +281,12 @@ class LoginPage extends React.Component {
       return <SlackLoginButton text={text} align={"center"} />
     } else if (type === "Steam") {
       return <SteamLoginButton text={text} align={"center"} />
+    } else if (type === "Bilibili") {
+      return <BilibiliLoginButton text={text} align={"center"} />
+    } else if (type === "Okta") {
+      return <OktaLoginButton text={text} align={"center"} />
+    } else if (type === "Douyin") {
+      return <DouyinLoginButton text={text} align={"center"} />
     }
 
     return text;
@@ -243,13 +314,13 @@ class LoginPage extends React.Component {
       if (provider.category === "OAuth") {
         return (
           <a key={provider.displayName} href={Provider.getAuthUrl(application, provider, "signup")}>
-            <img width={width} height={width} src={Provider.getProviderLogo(provider)} alt={provider.displayName} style={{margin: margin}} />
+            <img width={width} height={width} src={Setting.getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} />
           </a>
         )
       } else if (provider.category === "SAML") {
         return (
           <a key={provider.displayName} onClick={this.getSamlUrl.bind(this, provider)}>
-            <img width={width} height={width} src={Provider.getProviderLogo(provider)} alt={provider.displayName} style={{margin: margin}} />
+            <img width={width} height={width} src={Setting.getProviderLogoURL(provider)} alt={provider.displayName} style={{margin: margin}} />
           </a>
         )
       }
@@ -531,6 +602,9 @@ class LoginPage extends React.Component {
 
     return (
       <div>
+        {/*{*/}
+        {/*  JSON.stringify(silentSignin)*/}
+        {/*}*/}
         <div style={{fontSize: 16, textAlign: "left"}}>
           {i18next.t("login:Continue with")}&nbsp;:
         </div>

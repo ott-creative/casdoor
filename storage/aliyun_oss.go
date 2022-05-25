@@ -15,8 +15,8 @@
 package storage
 
 import (
-	"github.com/qor/oss"
-	"github.com/qor/oss/aliyun"
+	"github.com/casdoor/oss"
+	"github.com/casdoor/oss/aliyun"
 )
 
 func NewAliyunOssStorageProvider(clientId string, clientSecret string, region string, bucket string, endpoint string) oss.StorageInterface {

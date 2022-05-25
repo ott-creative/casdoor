@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/astaxie/beego/logs"
+	"github.com/casdoor/casdoor/util"
 )
 
 type LdapAutoSynchronizer struct {
@@ -47,7 +48,7 @@ func (l *LdapAutoSynchronizer) StartAutoSync(ldapId string) error {
 	stopChan := make(chan struct{})
 	l.ldapIdToStopChan[ldapId] = stopChan
 	logs.Info(fmt.Sprintf("autoSync started for %s", ldap.Id))
-	go l.syncRoutine(ldap, stopChan)
+	util.SafeGoroutine(func() {l.syncRoutine(ldap, stopChan)})
 	return nil
 }
 
@@ -85,7 +86,7 @@ func (l *LdapAutoSynchronizer) syncRoutine(ldap *Ldap, stopChan chan struct{}) {
 			logs.Warning(fmt.Sprintf("autoSync failed for %s, error %s", ldap.Id, err))
 			continue
 		}
-		existed, failed := SyncLdapUsers(ldap.Owner, LdapUsersToLdapRespUsers(users))
+		existed, failed := SyncLdapUsers(ldap.Owner, LdapUsersToLdapRespUsers(users), ldap.Id)
 		if len(*failed) != 0 {
 			logs.Warning(fmt.Sprintf("ldap autosync,%d new users,but %d user failed during :", len(users)-len(*existed)-len(*failed), len(*failed)), *failed)
 		} else {

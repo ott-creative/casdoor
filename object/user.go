@@ -39,6 +39,7 @@ type User struct {
 	Avatar            string   `xorm:"varchar(500)" json:"avatar"`
 	PermanentAvatar   string   `xorm:"varchar(500)" json:"permanentAvatar"`
 	Email             string   `xorm:"varchar(100) index" json:"email"`
+	EmailVerified     bool     `json:"emailVerified"`
 	Phone             string   `xorm:"varchar(100) index" json:"phone"`
 	Location          string   `xorm:"varchar(100)" json:"location"`
 	Address           []string `json:"address"`
@@ -71,26 +72,32 @@ type User struct {
 	LastSigninTime string `xorm:"varchar(100)" json:"lastSigninTime"`
 	LastSigninIp   string `xorm:"varchar(100)" json:"lastSigninIp"`
 
-	Github   string `xorm:"varchar(100)" json:"github"`
-	Google   string `xorm:"varchar(100)" json:"google"`
-	QQ       string `xorm:"qq varchar(100)" json:"qq"`
-	WeChat   string `xorm:"wechat varchar(100)" json:"wechat"`
-	Facebook string `xorm:"facebook varchar(100)" json:"facebook"`
-	DingTalk string `xorm:"dingtalk varchar(100)" json:"dingtalk"`
-	Weibo    string `xorm:"weibo varchar(100)" json:"weibo"`
-	Gitee    string `xorm:"gitee varchar(100)" json:"gitee"`
-	LinkedIn string `xorm:"linkedin varchar(100)" json:"linkedin"`
-	Wecom    string `xorm:"wecom varchar(100)" json:"wecom"`
-	Lark     string `xorm:"lark varchar(100)" json:"lark"`
-	Gitlab   string `xorm:"gitlab varchar(100)" json:"gitlab"`
-	Adfs     string `xorm:"adfs varchar(100)" json:"adfs"`
-	Baidu    string `xorm:"baidu varchar(100)" json:"baidu"`
-	Casdoor  string `xorm:"casdoor varchar(100)" json:"casdoor"`
-	Infoflow string `xorm:"infoflow varchar(100)" json:"infoflow"`
-	Apple    string `xorm:"apple varchar(100)" json:"apple"`
-	AzureAD  string `xorm:"azuread varchar(100)" json:"azuread"`
-	Slack    string `xorm:"slack varchar(100)" json:"slack"`
-	Steam    string `xorm:"steam varchar(100)" json:"steam"`
+	Github        string `xorm:"varchar(100)" json:"github"`
+	Google        string `xorm:"varchar(100)" json:"google"`
+	QQ            string `xorm:"qq varchar(100)" json:"qq"`
+	WeChat        string `xorm:"wechat varchar(100)" json:"wechat"`
+	WeChatUnionId string `xorm:"varchar(100)" json:"unionId"`
+	Facebook      string `xorm:"facebook varchar(100)" json:"facebook"`
+	DingTalk      string `xorm:"dingtalk varchar(100)" json:"dingtalk"`
+	Weibo         string `xorm:"weibo varchar(100)" json:"weibo"`
+	Gitee         string `xorm:"gitee varchar(100)" json:"gitee"`
+	LinkedIn      string `xorm:"linkedin varchar(100)" json:"linkedin"`
+	Wecom         string `xorm:"wecom varchar(100)" json:"wecom"`
+	Lark          string `xorm:"lark varchar(100)" json:"lark"`
+	Gitlab        string `xorm:"gitlab varchar(100)" json:"gitlab"`
+	Adfs          string `xorm:"adfs varchar(100)" json:"adfs"`
+	Baidu         string `xorm:"baidu varchar(100)" json:"baidu"`
+	Alipay        string `xorm:"alipay varchar(100)" json:"alipay"`
+	Casdoor       string `xorm:"casdoor varchar(100)" json:"casdoor"`
+	Infoflow      string `xorm:"infoflow varchar(100)" json:"infoflow"`
+	Apple         string `xorm:"apple varchar(100)" json:"apple"`
+	AzureAD       string `xorm:"azuread varchar(100)" json:"azuread"`
+	Slack         string `xorm:"slack varchar(100)" json:"slack"`
+	Steam         string `xorm:"steam varchar(100)" json:"steam"`
+	Bilibili      string `xorm:"bilibili varchar(100)" json:"bilibili"`
+	Okta          string `xorm:"okta varchar(100)" json:"okta"`
+	Douyin        string `xorm:"douyin vachar(100)" json:"douyin"`
+	Custom        string `xorm:"custom varchar(100)" json:"custom"`
 
 	Ldap       string            `xorm:"ldap varchar(100)" json:"ldap"`
 	Properties map[string]string `json:"properties"`
@@ -225,6 +232,23 @@ func getUserById(owner string, id string) *User {
 	}
 }
 
+func getUserByWechatId(wechatOpenId string, wechatUnionId string) *User {
+	if wechatUnionId == "" {
+		wechatUnionId = wechatOpenId
+	}
+	user := &User{}
+	existed, err := adapter.Engine.Where("wechat = ? OR wechat = ? OR unionid = ?", wechatOpenId, wechatUnionId, wechatUnionId).Get(user)
+	if err != nil {
+		panic(err)
+	}
+
+	if existed {
+		return user
+	} else {
+		return nil
+	}
+}
+
 func GetUserByEmail(owner string, email string) *User {
 	if owner == "" || email == "" {
 		return nil
@@ -292,6 +316,9 @@ func UpdateUser(id string, user *User, columns []string, isGlobalAdmin bool) boo
 		return false
 	}
 
+	if user.Password == "***" {
+		user.Password = oldUser.Password
+	}
 	user.UpdateUserHash()
 
 	if user.Avatar != oldUser.Avatar && user.Avatar != "" && user.PermanentAvatar != "*" {
@@ -304,7 +331,7 @@ func UpdateUser(id string, user *User, columns []string, isGlobalAdmin bool) boo
 			"is_admin", "is_global_admin", "is_forbidden", "is_deleted", "hash", "is_default_avatar", "properties"}
 	}
 	if isGlobalAdmin {
-		columns = append(columns, "name")
+		columns = append(columns, "name", "email", "phone")
 	}
 
 	affected, err := adapter.Engine.ID(core.PK{owner, name}).Cols(columns...).Update(user)

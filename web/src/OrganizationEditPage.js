@@ -155,7 +155,7 @@ class OrganizationEditPage extends React.Component {
           <Col span={22} >
             <Select virtual={false} style={{width: '100%'}} value={this.state.organization.passwordType} onChange={(value => {this.updateOrganizationField('passwordType', value);})}>
               {
-                ['plain', 'salt', 'md5-salt', 'bcrypt']
+                ['plain', 'salt', 'md5-salt', 'bcrypt', 'pbkdf2-salt', 'argon2id']
                   .map((item, index) => <Option key={index} value={item}>{item}</Option>)
               }
             </Select>
@@ -237,6 +237,16 @@ class OrganizationEditPage extends React.Component {
           <Col span={1} >
             <Switch checked={this.state.organization.enableSoftDeletion} onChange={checked => {
               this.updateOrganizationField('enableSoftDeletion', checked);
+            }} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: '20px'}} >
+          <Col style={{marginTop: '5px'}} span={(Setting.isMobile()) ? 19 : 2}>
+            {Setting.getLabel(i18next.t("organization:Is profile public"), i18next.t("organization:Is profile public - Tooltip"))} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.organization.isProfilePublic} onChange={checked => {
+              this.updateOrganizationField('isProfilePublic', checked);
             }} />
           </Col>
         </Row>

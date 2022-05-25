@@ -35,6 +35,7 @@ require('codemirror/theme/material-darker.css');
 require("codemirror/mode/htmlmixed/htmlmixed");
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 class ApplicationEditPage extends React.Component {
   constructor(props) {
@@ -48,6 +49,7 @@ class ApplicationEditPage extends React.Component {
       providers: [],
       uploading: false,
       mode: props.location.mode !== undefined ? props.location.mode : "edit",
+      samlMetadata: null,
     };
   }
 
@@ -56,12 +58,13 @@ class ApplicationEditPage extends React.Component {
     this.getOrganizations();
     this.getCerts();
     this.getProviders();
+    this.getSamlMetadata();
   }
 
   getApplication() {
     ApplicationBackend.getApplication("admin", this.state.applicationName)
       .then((application) => {
-        if (application.grantTypes === null || application.grantTypes.length === 0) {
+        if (application.grantTypes === null || application.grantTypes === undefined || application.grantTypes.length === 0) {
           application.grantTypes = ["authorization_code"];
         }
         this.setState({
@@ -94,6 +97,15 @@ class ApplicationEditPage extends React.Component {
         this.setState({
           providers: res,
         });
+      });
+  }
+
+  getSamlMetadata() {
+    ApplicationBackend.getSamlMetadata("admin", this.state.applicationName)
+      .then((res) => {
+        this.setState({
+          samlMetadata: res,
+        })
       });
   }
 
@@ -454,10 +466,19 @@ class ApplicationEditPage extends React.Component {
                           {id: "password", name: "Password"},
                           {id: "client_credentials", name: "Client Credentials"},
                           {id: "token", name: "Token"},
-                          {id: "id_token",name:"ID Token"},
-                        ].map((item, index)=><Option key={index} value={item.id}>{item.name}</Option>)
+                          {id: "id_token", name: "ID Token"},
+                          {id: "refresh_token", name: "Refresh Token"},
+                        ].map((item, index) => <Option key={index} value={item.id}>{item.name}</Option>)
                       }
             </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: '20px'}} >
+          <Col style={{marginTop: '5px'}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel(i18next.t("application:SAML metadata"), i18next.t("application:SAML metadata - Tooltip"))} :
+          </Col>
+          <Col span={22}>
+            <TextArea rows={8} value={this.state.samlMetadata} />
           </Col>
         </Row>
         <Row style={{marginTop: '20px'}} >

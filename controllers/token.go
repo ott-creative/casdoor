@@ -175,13 +175,31 @@ func (c *ApiController) GetOAuthToken() {
 	scope := c.Input().Get("scope")
 	username := c.Input().Get("username")
 	password := c.Input().Get("password")
+	tag := c.Input().Get("tag")
+	avatar := c.Input().Get("avatar")
 
 	if clientId == "" && clientSecret == "" {
 		clientId, clientSecret, _ = c.Ctx.Request.BasicAuth()
 	}
+	if clientId == "" {
+		// If clientID is empty, try to read data from RequestBody
+		var tokenRequest TokenRequest
+		if err := json.Unmarshal(c.Ctx.Input.RequestBody, &tokenRequest); err == nil {
+			clientId = tokenRequest.ClientId
+			clientSecret = tokenRequest.ClientSecret
+			grantType = tokenRequest.GrantType
+			code = tokenRequest.Code
+			verifier = tokenRequest.Verifier
+			scope = tokenRequest.Scope
+			username = tokenRequest.Username
+			password = tokenRequest.Password
+			tag = tokenRequest.Tag
+			avatar = tokenRequest.Avatar
+		}
+	}
 	host := c.Ctx.Request.Host
 
-	c.Data["json"] = object.GetOAuthToken(grantType, clientId, clientSecret, code, verifier, scope, username, password, host)
+	c.Data["json"] = object.GetOAuthToken(grantType, clientId, clientSecret, code, verifier, scope, username, password, host, tag, avatar)
 	c.ServeJSON()
 }
 
@@ -203,6 +221,18 @@ func (c *ApiController) RefreshToken() {
 	clientId := c.Input().Get("client_id")
 	clientSecret := c.Input().Get("client_secret")
 	host := c.Ctx.Request.Host
+
+	if clientId == "" {
+		// If clientID is empty, try to read data from RequestBody
+		var tokenRequest TokenRequest
+		if err := json.Unmarshal(c.Ctx.Input.RequestBody, &tokenRequest); err == nil {
+			clientId = tokenRequest.ClientId
+			clientSecret = tokenRequest.ClientSecret
+			grantType = tokenRequest.GrantType
+			scope = tokenRequest.Scope
+			refreshToken = tokenRequest.RefreshToken
+		}
+	}
 
 	c.Data["json"] = object.RefreshToken(grantType, refreshToken, scope, clientId, clientSecret, host)
 	c.ServeJSON()
@@ -245,21 +275,20 @@ func (c *ApiController) IntrospectToken() {
 	tokenValue := c.Input().Get("token")
 	clientId, clientSecret, ok := c.Ctx.Request.BasicAuth()
 	if !ok {
-		util.LogWarning(c.Ctx, "Basic Authorization parses failed")
-		c.Data["json"] = Response{Status: "error", Msg: "Unauthorized operation"}
-		c.ServeJSON()
-		return
+		clientId = c.Input().Get("client_id")
+		clientSecret = c.Input().Get("client_secret")
+		if clientId == "" || clientSecret == "" {
+			c.ResponseError("empty clientId or clientSecret")
+			return
+		}
 	}
 	application := object.GetApplicationByClientId(clientId)
 	if application == nil || application.ClientSecret != clientSecret {
-		util.LogWarning(c.Ctx, "Basic Authorization failed")
-		c.Data["json"] = Response{Status: "error", Msg: "Unauthorized operation"}
-		c.ServeJSON()
+		c.ResponseError("invalid application or wrong clientSecret")
 		return
 	}
 	token := object.GetTokenByTokenAndApplication(tokenValue, application.Name)
 	if token == nil {
-		util.LogWarning(c.Ctx, "application: %s can not find token", application.Name)
 		c.Data["json"] = &object.IntrospectionResponse{Active: false}
 		c.ServeJSON()
 		return
@@ -269,7 +298,6 @@ func (c *ApiController) IntrospectToken() {
 		// and token revoked case. but we not implement
 		// TODO: 2022-03-03 add token revoked check, when we implemented the Token Revocation(rfc7009) Specs.
 		// refs: https://tools.ietf.org/html/rfc7009
-		util.LogWarning(c.Ctx, "token invalid")
 		c.Data["json"] = &object.IntrospectionResponse{Active: false}
 		c.ServeJSON()
 		return

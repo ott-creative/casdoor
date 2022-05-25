@@ -80,16 +80,17 @@ p, *, *, GET, /api/get-app-login, *, *
 p, *, *, POST, /api/logout, *, *
 p, *, *, GET, /api/get-account, *, *
 p, *, *, GET, /api/userinfo, *, *
-p, *, *, POST, /api/login/oauth/access_token, *, *
-p, *, *, POST, /api/login/oauth/refresh_token, *, *
-p, *, *, GET, /api/login/oauth/logout, *, *
+p, *, *, *, /api/login/oauth, *, *
 p, *, *, GET, /api/get-application, *, *
+p, *, *, GET, /api/get-applications, *, *
 p, *, *, GET, /api/get-user, *, *
 p, *, *, GET, /api/get-user-application, *, *
 p, *, *, GET, /api/get-resources, *, *
 p, *, *, GET, /api/get-product, *, *
 p, *, *, POST, /api/buy-product, *, *
 p, *, *, GET, /api/get-payment, *, *
+p, *, *, POST, /api/update-payment, *, *
+p, *, *, POST, /api/invoice-payment, *, *
 p, *, *, GET, /api/get-providers, *, *
 p, *, *, POST, /api/unlink, *, *
 p, *, *, POST, /api/set-password, *, *
@@ -101,6 +102,8 @@ p, *, *, GET, /.well-known/openid-configuration, *, *
 p, *, *, *, /.well-known/jwks, *, *
 p, *, *, GET, /api/get-saml-login, *, *
 p, *, *, POST, /api/acs, *, *
+p, *, *, GET, /api/saml/metadata, *, *
+p, *, *, *, /cas, *, *
 `
 
 		sa := stringadapter.NewAdapter(ruleText)

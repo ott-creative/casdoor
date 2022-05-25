@@ -45,7 +45,7 @@ func NewAlipayPaymentProvider(appId string, appPublicKey string, appPrivateKey s
 	return pp
 }
 
-func (pp *AlipayPaymentProvider) Pay(providerName string, productName string, paymentName string, productDisplayName string, price float64, returnUrl string, notifyUrl string) (string, error) {
+func (pp *AlipayPaymentProvider) Pay(providerName string, productName string, payerName string, paymentName string, productDisplayName string, price float64, returnUrl string, notifyUrl string) (string, error) {
 	//pp.Client.DebugSwitch = gopay.DebugOn
 
 	bm := gopay.BodyMap{}
@@ -89,4 +89,8 @@ func (pp *AlipayPaymentProvider) Notify(request *http.Request, body []byte, auth
 	}
 
 	return productDisplayName, paymentName, price, productName, providerName, nil
+}
+
+func (pp *AlipayPaymentProvider) GetInvoice(paymentName string, personName string, personIdCard string, personEmail string, personPhone string, invoiceType string, invoiceTitle string, invoiceTaxId string) (string, error) {
+	return "", nil
 }

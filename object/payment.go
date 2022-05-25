@@ -44,6 +44,16 @@ type Payment struct {
 	ReturnUrl string `xorm:"varchar(1000)" json:"returnUrl"`
 	State     string `xorm:"varchar(100)" json:"state"`
 	Message   string `xorm:"varchar(1000)" json:"message"`
+
+	PersonName    string `xorm:"varchar(100)" json:"personName"`
+	PersonIdCard  string `xorm:"varchar(100)" json:"personIdCard"`
+	PersonEmail   string `xorm:"varchar(100)" json:"personEmail"`
+	PersonPhone   string `xorm:"varchar(100)" json:"personPhone"`
+	InvoiceType   string `xorm:"varchar(100)" json:"invoiceType"`
+	InvoiceTitle  string `xorm:"varchar(100)" json:"invoiceTitle"`
+	InvoiceTaxId  string `xorm:"varchar(100)" json:"invoiceTaxId"`
+	InvoiceRemark string `xorm:"varchar(100)" json:"invoiceRemark"`
+	InvoiceUrl    string `xorm:"varchar(255)" json:"invoiceUrl"`
 }
 
 func GetPaymentCount(owner, field, value string) int {
@@ -195,6 +205,44 @@ func NotifyPayment(request *http.Request, body []byte, owner string, providerNam
 
 	ok := err == nil
 	return ok
+}
+
+func invoicePayment(payment *Payment) (string, error) {
+	provider := getProvider(payment.Owner, payment.Provider)
+	if provider == nil {
+		return "", fmt.Errorf("the payment provider: %s does not exist", payment.Provider)
+	}
+
+	pProvider, _, err := provider.getPaymentProvider()
+	if err != nil {
+		return "", err
+	}
+
+	invoiceUrl, err := pProvider.GetInvoice(payment.Name, payment.PersonName, payment.PersonIdCard, payment.PersonEmail, payment.PersonPhone, payment.InvoiceType, payment.InvoiceTitle, payment.InvoiceTaxId)
+	if err != nil {
+		return "", err
+	}
+
+	return invoiceUrl, nil
+}
+
+func InvoicePayment(payment *Payment) (string, error) {
+	if payment.State != "Paid" {
+		return "", fmt.Errorf("the payment state is supposed to be: \"%s\", got: \"%s\"", "Paid", payment.State)
+	}
+
+	invoiceUrl, err := invoicePayment(payment)
+	if err != nil {
+		return "", err
+	}
+
+	payment.InvoiceUrl = invoiceUrl
+	affected := UpdatePayment(payment.GetId(), payment)
+	if !affected {
+		return "", fmt.Errorf("failed to update the payment: %s", payment.Name)
+	}
+
+	return invoiceUrl, nil
 }
 
 func (payment *Payment) GetId() string {

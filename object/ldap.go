@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/astaxie/beego"
 	"github.com/casdoor/casdoor/util"
 	goldap "github.com/go-ldap/ldap/v3"
 	"github.com/thanhpk/randstr"
@@ -42,6 +43,7 @@ type Ldap struct {
 
 type ldapConn struct {
 	Conn *goldap.Conn
+	IsAD bool
 }
 
 //type ldapGroup struct {
@@ -78,6 +80,13 @@ type LdapRespUser struct {
 	Address string `json:"address"`
 }
 
+type ldapServerType struct {
+	Vendorname           string
+	Vendorversion        string
+	IsGlobalCatalogReady string
+	ForestFunctionality  string
+}
+
 func LdapUsersToLdapRespUsers(users []ldapUser) []LdapRespUser {
 	returnAnyNotEmpty := func(strs ...string) string {
 		for _, str := range strs {
@@ -104,6 +113,45 @@ func LdapUsersToLdapRespUsers(users []ldapUser) []LdapRespUser {
 	return res
 }
 
+func isMicrosoftAD(Conn *goldap.Conn) (bool, error) {
+	SearchFilter := "(objectclass=*)"
+	SearchAttributes := []string{"vendorname", "vendorversion", "isGlobalCatalogReady", "forestFunctionality"}
+
+	searchReq := goldap.NewSearchRequest("",
+		goldap.ScopeBaseObject, goldap.NeverDerefAliases, 0, 0, false,
+		SearchFilter, SearchAttributes, nil)
+	searchResult, err := Conn.Search(searchReq)
+	if err != nil {
+		return false, err
+	}
+	if len(searchResult.Entries) == 0 {
+		return false, errors.New("no result")
+	}
+	isMicrosoft := false
+	var ldapServerType ldapServerType
+	for _, entry := range searchResult.Entries {
+		for _, attribute := range entry.Attributes {
+			switch attribute.Name {
+			case "vendorname":
+				ldapServerType.Vendorname = attribute.Values[0]
+			case "vendorversion":
+				ldapServerType.Vendorversion = attribute.Values[0]
+			case "isGlobalCatalogReady":
+				ldapServerType.IsGlobalCatalogReady = attribute.Values[0]
+			case "forestFunctionality":
+				ldapServerType.ForestFunctionality = attribute.Values[0]
+			}
+		}
+	}
+	if ldapServerType.Vendorname == "" &&
+		ldapServerType.Vendorversion == "" &&
+		ldapServerType.IsGlobalCatalogReady == "TRUE" &&
+		ldapServerType.ForestFunctionality != "" {
+		isMicrosoft = true
+	}
+	return isMicrosoft, err
+}
+
 func GetLdapConn(host string, port int, adminUser string, adminPasswd string) (*ldapConn, error) {
 	conn, err := goldap.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
@@ -115,7 +163,11 @@ func GetLdapConn(host string, port int, adminUser string, adminPasswd string) (*
 		return nil, fmt.Errorf("fail to login Ldap server with [%s]", adminUser)
 	}
 
-	return &ldapConn{Conn: conn}, nil
+	isAD, err := isMicrosoftAD(conn)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get Ldap server type [%s]", adminUser)
+	}
+	return &ldapConn{Conn: conn, IsAD: isAD}, nil
 }
 
 //FIXME: The Base DN does not necessarily contain the Group
@@ -158,10 +210,19 @@ func (l *ldapConn) GetLdapUsers(baseDn string) ([]ldapUser, error) {
 	SearchFilter := "(objectClass=posixAccount)"
 	SearchAttributes := []string{"uidNumber", "uid", "cn", "gidNumber", "entryUUID", "mail", "email",
 		"emailAddress", "telephoneNumber", "mobile", "mobileTelephoneNumber", "registeredAddress", "postalAddress"}
-
-	searchReq := goldap.NewSearchRequest(baseDn,
-		goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
-		SearchFilter, SearchAttributes, nil)
+	SearchFilterMsAD := "(objectClass=user)"
+	SearchAttributesMsAD := []string{"uidNumber", "sAMAccountName", "cn", "gidNumber", "entryUUID", "mail", "email",
+		"emailAddress", "telephoneNumber", "mobile", "mobileTelephoneNumber", "registeredAddress", "postalAddress"}
+	var searchReq *goldap.SearchRequest
+	if l.IsAD {
+		searchReq = goldap.NewSearchRequest(baseDn,
+			goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
+			SearchFilterMsAD, SearchAttributesMsAD, nil)
+	} else {
+		searchReq = goldap.NewSearchRequest(baseDn,
+			goldap.ScopeWholeSubtree, goldap.NeverDerefAliases, 0, 0, false,
+			SearchFilter, SearchAttributes, nil)
+	}
 	searchResult, err := l.Conn.SearchWithPaging(searchReq, 100)
 	if err != nil {
 		return nil, err
@@ -181,11 +242,15 @@ func (l *ldapConn) GetLdapUsers(baseDn string) ([]ldapUser, error) {
 				ldapUserItem.UidNumber = attribute.Values[0]
 			case "uid":
 				ldapUserItem.Uid = attribute.Values[0]
+			case "sAMAccountName":
+				ldapUserItem.Uid = attribute.Values[0]
 			case "cn":
 				ldapUserItem.Cn = attribute.Values[0]
 			case "gidNumber":
 				ldapUserItem.GidNumber = attribute.Values[0]
 			case "entryUUID":
+				ldapUserItem.Uuid = attribute.Values[0]
+			case "objectGUID":
 				ldapUserItem.Uuid = attribute.Values[0]
 			case "mail":
 				ldapUserItem.Mail = attribute.Values[0]
@@ -300,7 +365,7 @@ func DeleteLdap(ldap *Ldap) bool {
 	return affected != 0
 }
 
-func SyncLdapUsers(owner string, users []LdapRespUser) (*[]LdapRespUser, *[]LdapRespUser) {
+func SyncLdapUsers(owner string, users []LdapRespUser, ldapId string) (*[]LdapRespUser, *[]LdapRespUser) {
 	var existUsers []LdapRespUser
 	var failedUsers []LdapRespUser
 	var uuids []string
@@ -310,6 +375,25 @@ func SyncLdapUsers(owner string, users []LdapRespUser) (*[]LdapRespUser, *[]Ldap
 	}
 
 	existUuids := CheckLdapUuidExist(owner, uuids)
+
+	organization := getOrganization("admin", owner)
+	ldap := GetLdap(ldapId)
+
+	var dc []string
+	for _, basedn := range strings.Split(ldap.BaseDn, ",") {
+		if strings.Contains(basedn, "dc=") {
+			dc = append(dc, basedn[3:])
+		}
+	}
+	affiliation := strings.Join(dc, ".")
+
+	var ou []string
+	for _, admin := range strings.Split(ldap.Admin, ",") {
+		if strings.Contains(admin, "ou=") {
+			ou = append(ou, admin[3:])
+		}
+	}
+	tag := strings.Join(ou, ".")
 
 	for _, user := range users {
 		found := false
@@ -325,15 +409,14 @@ func SyncLdapUsers(owner string, users []LdapRespUser) (*[]LdapRespUser, *[]Ldap
 			Owner:       owner,
 			Name:        buildLdapUserName(user.Uid, user.UidNumber),
 			CreatedTime: util.GetCurrentTime(),
-			Password:    "123",
 			DisplayName: user.Cn,
-			Avatar:      "https://casbin.org/img/casbin.svg",
+			Avatar:      organization.DefaultAvatar,
 			Email:       user.Email,
 			Phone:       user.Phone,
 			Address:     []string{user.Address},
-			Affiliation: "Example Inc.",
-			Tag:         "staff",
-			Score:       2000,
+			Affiliation: affiliation,
+			Tag:         tag,
+			Score:       beego.AppConfig.DefaultInt("initScore", 2000),
 			Ldap:        user.Uuid,
 		}) {
 			failedUsers = append(failedUsers, user)

@@ -36,6 +36,9 @@ const authInfo = {
     mpScope: "snsapi_userinfo",
     mpEndpoint: "https://open.weixin.qq.com/connect/oauth2/authorize"
   },
+  WeChatMiniProgram: {
+    endpoint: "https://mp.weixin.qq.com/",
+  },
   Facebook: {
     scope: "email,public_profile",
     endpoint: "https://www.facebook.com/dialog/oauth",
@@ -78,6 +81,10 @@ const authInfo = {
     scope: "basic",
     endpoint: "http://openapi.baidu.com/oauth/2.0/authorize",
   },
+  Alipay: {
+    scope: "basic",
+    endpoint: "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm",
+  },
   Casdoor: {
     scope: "openid%20profile%20email",
     endpoint: "http://example.com",
@@ -100,88 +107,21 @@ const authInfo = {
   Steam: {
     endpoint: "https://steamcommunity.com/openid/login",
   },
-};
-
-const otherProviderInfo = {
-  SMS: {
-    "Aliyun SMS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_aliyun.png`,
-      url: "https://aliyun.com/product/sms",
-    },
-    "Tencent Cloud SMS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_tencent_cloud.jpg`,
-      url: "https://cloud.tencent.com/product/sms",
-    },
-    "Volc Engine SMS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_volc_engine.jpg`,
-      url: "https://www.volcengine.com/products/cloud-sms",
-    },
-    "Huawei Cloud SMS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_huawei.png`,
-      url: "https://www.huaweicloud.com/product/msgsms.html",
-    },
+  Okta: {
+    scope: "openid%20profile%20email",
+    endpoint: "http://example.com",
   },
-  Email: {
-    "Default": {
-      logo: `${Setting.StaticBaseUrl}/img/social_default.png`,
-      url: "",
-    },
+  Douyin: {
+    scope: "user_info",
+    endpoint: "https://open.douyin.com/platform/oauth/connect",
   },
-  Storage: {
-    "Local File System": {
-      logo: `${Setting.StaticBaseUrl}/img/social_file.png`,
-      url: "",
-    },
-    "AWS S3": {
-      logo: `${Setting.StaticBaseUrl}/img/social_aws.png`,
-      url: "https://aws.amazon.com/s3",
-    },
-    "Aliyun OSS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_aliyun.png`,
-      url: "https://aliyun.com/product/oss",
-    },
-    "Tencent Cloud COS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_tencent_cloud.jpg`,
-      url: "https://cloud.tencent.com/product/cos",
-    },
+  Custom: {
+    endpoint: "https://example.com/",
   },
-  SAML: {
-    "Aliyun IDaaS": {
-      logo: `${Setting.StaticBaseUrl}/img/social_aliyun.png`,
-      url: "https://aliyun.com/product/idaas"
-    },
-    "Keycloak": {
-      logo: `${Setting.StaticBaseUrl}/img/social_keycloak.png`,
-      url: "https://www.keycloak.org/"
-    },
-  },
-  Payment: {
-    "Alipay": {
-      logo: `${Setting.StaticBaseUrl}/img/payment_alipay.png`,
-      url: "https://www.alipay.com/"
-    },
-    "WeChat Pay": {
-      logo: `${Setting.StaticBaseUrl}/img/payment_wechat_pay.png`,
-      url: "https://pay.weixin.qq.com/"
-    },
-    "PayPal": {
-      logo: `${Setting.StaticBaseUrl}/img/payment_paypal.png`,
-      url: "https://www.paypal.com/"
-    },
-    "GC": {
-      logo: `${Setting.StaticBaseUrl}/img/payment_gc.png`,
-      url: "https://gc.org"
-    },
-  },
-};
-
-export function getProviderLogo(provider) {
-  if (provider.category === "OAuth") {
-    return `${Setting.StaticBaseUrl}/img/social_${provider.type.toLowerCase()}.png`;
-  } else {
-    return otherProviderInfo[provider.category][provider.type].logo;
+  Bilibili: {
+    endpoint: "https://passport.bilibili.com/register/pc_oauth2.html"
   }
-}
+};
 
 export function getProviderUrl(provider) {
   if (provider.category === "OAuth") {
@@ -197,7 +137,7 @@ export function getProviderUrl(provider) {
 
     return `${urlObj.protocol}//${host}`;
   } else {
-    return otherProviderInfo[provider.category][provider.type].url;
+    return Setting.OtherProviderInfo[provider.category][provider.type].url;
   }
 }
 
@@ -211,14 +151,14 @@ export function getProviderLogoWidget(provider) {
     return (
       <Tooltip title={provider.type}>
         <a target="_blank" rel="noreferrer" href={getProviderUrl(provider)}>
-          <img width={36} height={36} src={getProviderLogo(provider)} alt={provider.displayName} />
+          <img width={36} height={36} src={Setting.getProviderLogoURL(provider)} alt={provider.displayName} />
         </a>
       </Tooltip>
     )
   } else {
     return (
       <Tooltip title={provider.type}>
-        <img width={36} height={36} src={getProviderLogo(provider)} alt={provider.displayName} />
+        <img width={36} height={36} src={Setting.getProviderLogoURL(provider)} alt={provider.displayName} />
       </Tooltip>
     )
   }
@@ -287,6 +227,8 @@ export function getAuthUrl(application, provider, method) {
     return `${provider.domain}/adfs/oauth2/authorize?client_id=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&nonce=casdoor&scope=openid`;
   } else if (provider.type === "Baidu") {
     return `${endpoint}?client_id=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}&display=popup`;
+  } else if (provider.type === "Alipay") {
+    return `${endpoint}?app_id=${provider.clientId}&scope=auth_user&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}&display=popup`;
   } else if (provider.type === "Casdoor") {
     return `${provider.domain}/login/oauth/authorize?client_id=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}`;
   } else if (provider.type === "Infoflow"){
@@ -299,5 +241,13 @@ export function getAuthUrl(application, provider, method) {
     return `${endpoint}?client_id=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}`;
   } else if (provider.type === "Steam") {
     return `${endpoint}?openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select&openid.identity=http://specs.openid.net/auth/2.0/identifier_select&openid.mode=checkid_setup&openid.ns=http://specs.openid.net/auth/2.0&openid.realm=${window.location.origin}&openid.return_to=${redirectUri}?state=${state}`;
-  } 
+  } else if (provider.type === "Okta") {
+    return `${provider.domain}/v1/authorize?client_id=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}`;
+  } else if (provider.type === "Douyin") {
+    return `${endpoint}?client_key=${provider.clientId}&redirect_uri=${redirectUri}&state=${state}&response_type=code&scope=${scope}`;
+  } else if (provider.type === "Custom") {
+    return `${provider.customAuthUrl}?client_id=${provider.clientId}&redirect_uri=${redirectUri}&scope=${provider.customScope}&response_type=code&state=${state}`;
+  } else if (provider.type === "Bilibili") {
+    return `${endpoint}#/?client_id=${provider.clientId}&return_url=${redirectUri}&state=${state}&response_type=code`
+  }
 }
