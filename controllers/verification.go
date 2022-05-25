@@ -53,16 +53,19 @@ func (c *ApiController) SendVerificationCode() {
 		return
 	}
 
-	isHuman := false
-	captchaProvider := object.GetDefaultHumanCheckProvider()
-	if captchaProvider == nil {
-		isHuman = object.VerifyCaptcha(checkId, checkKey)
-	}
+	// TODO: more user friendly check
+	/*
+		isHuman := false
+		captchaProvider := object.GetDefaultHumanCheckProvider()
+		if captchaProvider == nil {
+			isHuman = object.VerifyCaptcha(checkId, checkKey)
+		}
 
-	if !isHuman {
-		c.ResponseError("Turing test failed.")
-		return
-	}
+		if !isHuman {
+			c.ResponseError("Turing test failed.")
+			return
+		}
+	*/
 
 	user := c.getCurrentUser()
 	organization := object.GetOrganization(orgId)
