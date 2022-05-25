@@ -4,19 +4,19 @@ module.exports = {
   devServer: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://sso-api.codegene.xyz',
         changeOrigin: true,
       },
       '/swagger': {
-        target: 'http://localhost:8000',
+        target: 'http://sso-api.codegene.xyz',
         changeOrigin: true,
       },
       '/files': {
-        target: 'http://localhost:8000',
+        target: 'http://sso-api.codegene.xyz',
         changeOrigin: true,
       },
       '/.well-known/openid-configuration': {
-        target: 'http://localhost:8000',
+        target: 'http://sso-api.codegene.xyz',
         changeOrigin: true,
       }
     },
