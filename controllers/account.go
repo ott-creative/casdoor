@@ -75,6 +75,16 @@ type Response struct {
 	Data2  interface{} `json:"data2"`
 }
 
+type OTTResponse struct {
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Body interface{} `json:"body"`
+}
+
+type OTTSendVerificationCodeResponse struct {
+	Timer int `json:"timer"` // seconds to wait before next request
+}
+
 type HumanCheck struct {
 	Type         string      `json:"type"`
 	AppKey       string      `json:"appKey"`
@@ -92,6 +102,133 @@ type HumanCheck struct {
 // @Success 200 {object} controllers.Response The Response object
 // @router /signup [post]
 func (c *ApiController) Signup() {
+	if c.GetSessionUsername() != "" {
+		c.ResponseError("Please sign out first before signing up", c.GetSessionUsername())
+		return
+	}
+
+	var form RequestForm
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &form)
+	if err != nil {
+		panic(err)
+	}
+
+	application := object.GetApplication(fmt.Sprintf("admin/%s", form.Application))
+	if !application.EnableSignUp {
+		c.ResponseError("The application does not allow to sign up new account")
+		return
+	}
+
+	organization := object.GetOrganization(fmt.Sprintf("%s/%s", "admin", form.Organization))
+	msg := object.CheckUserSignup(application, organization, form.Username, form.Password, form.Name, form.FirstName, form.LastName, form.Email, form.Phone, form.Affiliation)
+	if msg != "" {
+		c.ResponseError(msg)
+		return
+	}
+
+	if application.IsSignupItemVisible("Email") && application.GetSignupItemRule("Email") != "No verification" && form.Email != "" {
+		checkResult := object.CheckVerificationCode(form.Email, form.EmailCode)
+		if len(checkResult) != 0 {
+			c.ResponseError(fmt.Sprintf("Email: %s", checkResult))
+			return
+		}
+	}
+
+	var checkPhone string
+	if application.IsSignupItemVisible("Phone") && form.Phone != "" {
+		checkPhone = fmt.Sprintf("+%s%s", form.PhonePrefix, form.Phone)
+		checkResult := object.CheckVerificationCode(checkPhone, form.PhoneCode)
+		if len(checkResult) != 0 {
+			c.ResponseError(fmt.Sprintf("Phone: %s", checkResult))
+			return
+		}
+	}
+
+	id := util.GenerateId()
+	if application.GetSignupItemRule("ID") == "Incremental" {
+		lastUser := object.GetLastUser(form.Organization)
+
+		lastIdInt := -1
+		if lastUser != nil {
+			lastIdInt = util.ParseInt(lastUser.Id)
+		}
+
+		id = strconv.Itoa(lastIdInt + 1)
+	}
+
+	username := form.Username
+	if !application.IsSignupItemVisible("Username") {
+		username = id
+	}
+
+	user := &object.User{
+		Owner:             form.Organization,
+		Name:              username,
+		CreatedTime:       util.GetCurrentTime(),
+		Id:                id,
+		Type:              "normal-user",
+		Password:          form.Password,
+		DisplayName:       form.Name,
+		Avatar:            organization.DefaultAvatar,
+		Email:             form.Email,
+		Phone:             form.Phone,
+		Address:           []string{},
+		Affiliation:       form.Affiliation,
+		IdCard:            form.IdCard,
+		Region:            form.Region,
+		Score:             getInitScore(),
+		IsAdmin:           false,
+		IsGlobalAdmin:     false,
+		IsForbidden:       false,
+		IsDeleted:         false,
+		SignupApplication: application.Name,
+		Properties:        map[string]string{},
+		Karma:             0,
+	}
+
+	if len(organization.Tags) > 0 {
+		tokens := strings.Split(organization.Tags[0], "|")
+		if len(tokens) > 0 {
+			user.Tag = tokens[0]
+		}
+	}
+
+	if application.GetSignupItemRule("Display name") == "First, last" {
+		if form.FirstName != "" || form.LastName != "" {
+			user.DisplayName = fmt.Sprintf("%s %s", form.FirstName, form.LastName)
+			user.FirstName = form.FirstName
+			user.LastName = form.LastName
+		}
+	}
+
+	affected := object.AddUser(user)
+	if !affected {
+		c.ResponseError(fmt.Sprintf("Failed to create user, user information is invalid: %s", util.StructToJson(user)))
+		return
+	}
+
+	object.AddUserToOriginalDatabase(user)
+
+	if application.HasPromptPage() {
+		// The prompt page needs the user to be signed in
+		c.SetSessionUsername(user.GetId())
+	}
+
+	object.DisableVerificationCode(form.Email)
+	object.DisableVerificationCode(checkPhone)
+
+	record := object.NewRecord(c.Ctx)
+	record.Organization = application.Organization
+	record.User = user.Name
+	util.SafeGoroutine(func() { object.AddRecord(record) })
+
+	userId := fmt.Sprintf("%s/%s", user.Owner, user.Name)
+	util.LogInfo(c.Ctx, "API: [%s] is signed up as new user", userId)
+
+	c.ResponseOk(userId)
+}
+
+func (c *ApiController) OTTSignup() {
 	if c.GetSessionUsername() != "" {
 		c.ResponseError("Please sign out first before signing up", c.GetSessionUsername())
 		return

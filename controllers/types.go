@@ -27,3 +27,11 @@ type TokenRequest struct {
 	Avatar       string `json:"avatar"`
 	RefreshToken string `json:"refresh_token"`
 }
+
+type SendVerificationCodeRequest struct {
+	AppId      string `json:"app_id"`      // Application ID, for light wallet: admin/light-wallet
+	Purpose    int    `json:"purpose"`     // 0: register, 1: login, 2: reset password
+	Method     int    `json:"method"`      // 0: phone, 1: email
+	DestPrefix string `json:"dest_prefix"` // phone: +86 or other country code, email: will be ignored
+	Dest       string `json:"dest"`        // phone: phone number, email: email address
+}

@@ -94,6 +94,7 @@ func initAPI() {
 	beego.Router("/api/check-user-password", &controllers.ApiController{}, "POST:CheckUserPassword")
 	beego.Router("/api/get-email-and-phone", &controllers.ApiController{}, "POST:GetEmailAndPhone")
 	beego.Router("/api/send-verification-code", &controllers.ApiController{}, "POST:SendVerificationCode")
+	beego.Router("/api/ott/send-verification-code", &controllers.ApiController{}, "POST:OTTSendVerificationCode")
 	beego.Router("/api/reset-email-or-phone", &controllers.ApiController{}, "POST:ResetEmailOrPhone")
 	beego.Router("/api/get-human-check", &controllers.ApiController{}, "GET:GetHumanCheck")
 

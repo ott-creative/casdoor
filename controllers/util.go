@@ -51,6 +51,13 @@ func (c *ApiController) ResponseError(error string, data ...interface{}) {
 	c.ServeJSON()
 }
 
+func (c *ApiController) OTTResponseError(code int, error string) {
+	resp := OTTResponse{Code: code, Msg: error}
+
+	c.Data["json"] = resp
+	c.ServeJSON()
+}
+
 // RequireSignedIn ...
 func (c *ApiController) RequireSignedIn() (string, bool) {
 	userId := c.GetSessionUsername()

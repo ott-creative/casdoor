@@ -15,6 +15,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -53,19 +54,16 @@ func (c *ApiController) SendVerificationCode() {
 		return
 	}
 
-	// TODO: more user friendly check
-	/*
-		isHuman := false
-		captchaProvider := object.GetDefaultHumanCheckProvider()
-		if captchaProvider == nil {
-			isHuman = object.VerifyCaptcha(checkId, checkKey)
-		}
+	isHuman := false
+	captchaProvider := object.GetDefaultHumanCheckProvider()
+	if captchaProvider == nil {
+		isHuman = object.VerifyCaptcha(checkId, checkKey)
+	}
 
-		if !isHuman {
-			c.ResponseError("Turing test failed.")
-			return
-		}
-	*/
+	if !isHuman {
+		c.ResponseError("Turing test failed.")
+		return
+	}
 
 	user := c.getCurrentUser()
 	organization := object.GetOrganization(orgId)
@@ -108,7 +106,8 @@ func (c *ApiController) SendVerificationCode() {
 			return
 		}
 
-		dest = fmt.Sprintf("+%s%s", org.PhonePrefix, dest)
+		// OTT Temp disable for Aliyun SMS test
+		//dest = fmt.Sprintf("+%s%s", org.PhonePrefix, dest)
 		provider := application.GetSmsProvider()
 		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)
 	}
@@ -117,6 +116,69 @@ func (c *ApiController) SendVerificationCode() {
 		c.Data["json"] = Response{Status: "error", Msg: sendResp.Error()}
 	} else {
 		c.Data["json"] = Response{Status: "ok"}
+	}
+
+	c.ServeJSON()
+}
+
+func (c *ApiController) OTTSendVerificationCode() {
+	var svcRequest SendVerificationCodeRequest
+	var user *object.User
+
+	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &svcRequest); err != nil {
+		c.OTTResponseError(203, err.Error())
+		return
+	}
+
+	remoteAddr := util.GetIPFromRequest(c.Ctx.Request)
+
+	// TODO: machine check
+	dest := svcRequest.Dest
+	application := object.GetApplication(svcRequest.AppId)
+	organization := object.GetOrganization("admin/OTT")
+
+	// reset password needs current login user
+	if svcRequest.Purpose == 2 {
+		user = c.getCurrentUser()
+	}
+
+	sendResp := errors.New("send verification code failed")
+
+	switch svcRequest.Method {
+	case 1: // email
+		if !util.IsEmailValid(svcRequest.Dest) {
+			c.OTTResponseError(302, "Invalid Email address")
+			return
+		}
+
+		if user != nil && util.GetMaskedEmail(user.Email) == dest {
+			dest = user.Email
+		}
+
+		provider := application.GetEmailProvider()
+		sendResp = object.SendVerificationCodeToEmail(organization, user, provider, remoteAddr, dest)
+	case 0: // sms
+		if user != nil && util.GetMaskedPhone(user.Phone) == dest {
+			dest = user.Phone
+		}
+
+		// TODO: validate international phone number
+		if svcRequest.DestPrefix == "+86" && !util.IsPhoneCnValid(dest) {
+			c.OTTResponseError(301, "Invalid phone number")
+			return
+		}
+
+		// OTT Temp disable for Aliyun SMS test
+		//dest = fmt.Sprintf("%s%s", svcRequest.DestPrefix, svcRequest.Dest)
+
+		provider := application.GetSmsProvider()
+		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)
+	}
+
+	if sendResp != nil {
+		c.Data["json"] = OTTResponse{Code: 300, Msg: sendResp.Error()}
+	} else {
+		c.Data["json"] = OTTResponse{Code: 200, Body: OTTSendVerificationCodeResponse{Timer: 60}}
 	}
 
 	c.ServeJSON()

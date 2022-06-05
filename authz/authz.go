@@ -95,6 +95,7 @@ p, *, *, GET, /api/get-providers, *, *
 p, *, *, POST, /api/unlink, *, *
 p, *, *, POST, /api/set-password, *, *
 p, *, *, POST, /api/send-verification-code, *, *
+p, *, *, POST, /api/ott/send-verification-code, *, *
 p, *, *, GET, /api/get-human-check, *, *
 p, *, *, POST, /api/reset-email-or-phone, *, *
 p, *, *, POST, /api/upload-resource, *, *
