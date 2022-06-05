@@ -24,6 +24,14 @@ import (
 	"github.com/casdoor/casdoor/util"
 )
 
+type SendVerificationCodeRequest struct {
+	AppId      string `json:"app_id"`      // Application ID, for light wallet: light-wallet
+	Purpose    int    `json:"purpose"`     // 0: register, 1: login, 2: reset password
+	Method     int    `json:"method"`      // 0: phone, 1: email
+	DestPrefix string `json:"dest_prefix"` // phone: +86 or other country code, email: will be ignored
+	Dest       string `json:"dest"`        // phone: phone number, email: email address
+}
+
 func (c *ApiController) getCurrentUser() *object.User {
 	var user *object.User
 	userId := c.GetSessionUsername()
@@ -134,7 +142,7 @@ func (c *ApiController) OTTSendVerificationCode() {
 
 	// TODO: machine check
 	dest := svcRequest.Dest
-	application := object.GetApplication(svcRequest.AppId)
+	application := object.GetApplication(fmt.Sprintf("admin/%s", svcRequest.AppId))
 	organization := object.GetOrganization("admin/OTT")
 
 	// reset password needs current login user
@@ -147,7 +155,7 @@ func (c *ApiController) OTTSendVerificationCode() {
 	switch svcRequest.Method {
 	case 1: // email
 		if !util.IsEmailValid(svcRequest.Dest) {
-			c.OTTResponseError(302, "Invalid Email address")
+			c.OTTResponseError(OTT_CODE_INVALID_EMAIL, "Invalid Email address")
 			return
 		}
 
@@ -164,21 +172,21 @@ func (c *ApiController) OTTSendVerificationCode() {
 
 		// TODO: validate international phone number
 		if svcRequest.DestPrefix == "+86" && !util.IsPhoneCnValid(dest) {
-			c.OTTResponseError(301, "Invalid phone number")
+			c.OTTResponseError(OTT_CODE_INVALID_PHONE, "Invalid phone number")
 			return
 		}
 
 		// OTT Temp disable for Aliyun SMS test
-		//dest = fmt.Sprintf("%s%s", svcRequest.DestPrefix, svcRequest.Dest)
+		dest = fmt.Sprintf("+%s%s", svcRequest.DestPrefix, svcRequest.Dest)
 
 		provider := application.GetSmsProvider()
 		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)
 	}
 
 	if sendResp != nil {
-		c.Data["json"] = OTTResponse{Code: 300, Msg: sendResp.Error()}
+		c.Data["json"] = OTTResponse{Code: OTT_CODE_SEND_VERIFICATION_CODE_FAILED, Msg: sendResp.Error()}
 	} else {
-		c.Data["json"] = OTTResponse{Code: 200, Body: OTTSendVerificationCodeResponse{Timer: 60}}
+		c.Data["json"] = OTTResponse{Code: OTT_CODE_OK, Body: OTTSendVerificationCodeResponse{Timer: 60}}
 	}
 
 	c.ServeJSON()

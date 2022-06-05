@@ -49,8 +49,8 @@ func CheckUserSignup(application *Application, organization *Organization, usern
 		}
 	}
 
-	if len(password) <= 5 {
-		return "password must have at least 6 characters"
+	if len(password) <= 8 {
+		return "password must have at least 8 characters"
 	}
 
 	if application.IsSignupItemVisible("Email") {
@@ -83,6 +83,77 @@ func CheckUserSignup(application *Application, organization *Organization, usern
 		} else if organization.PhonePrefix == "86" && !util.IsPhoneCnValid(phone) {
 			return "phone number is invalid"
 		}
+	}
+
+	if application.IsSignupItemVisible("Display name") {
+		if application.GetSignupItemRule("Display name") == "First, last" && (firstName != "" || lastName != "") {
+			if firstName == "" {
+				return "firstName cannot be blank"
+			} else if lastName == "" {
+				return "lastName cannot be blank"
+			}
+		} else {
+			if displayName == "" {
+				return "displayName cannot be blank"
+			} else if application.GetSignupItemRule("Display name") == "Real name" {
+				if !isValidRealName(displayName) {
+					return "displayName is not valid real name"
+				}
+			}
+		}
+	}
+
+	if application.IsSignupItemVisible("Affiliation") {
+		if affiliation == "" {
+			return "affiliation cannot be blank"
+		}
+	}
+
+	return ""
+}
+
+func OTTCheckUserSignup(application *Application, organization *Organization, signUpType int, username string, password string, displayName string, firstName string, lastName string, identity string, prefix *string, affiliation string) string {
+	if organization == nil {
+		return "organization does not exist"
+	}
+
+	if application.IsSignupItemVisible("Username") {
+		if len(username) <= 1 {
+			return "username must have at least 2 characters"
+		} else if reWhiteSpace.MatchString(username) {
+			return "username cannot contain white spaces"
+		} else if HasUserByField(organization.Name, "name", username) {
+			return "username already exists"
+		}
+	}
+
+	if len(password) <= 8 {
+		return "password must have at least 8 characters"
+	}
+
+	if signUpType == 1 {
+		if identity == "" {
+			return "email cannot be empty"
+		}
+
+		if HasUserByField(organization.Name, "email", identity) {
+			return "email already exists"
+		} else if !util.IsEmailValid(identity) {
+			return "email is invalid"
+		}
+	} else if signUpType == 0 {
+		if identity == "" || prefix == nil || *prefix == "" {
+			return "phone cannot be empty"
+		}
+
+		if HasUserByField(organization.Name, "phone", fmt.Sprintf("%s%s", *prefix, identity)) {
+			return "phone already exists"
+		} /* TODO: check international phone number
+		else if !util.IsPhoneCnValid(*phone) {
+			return "phone number is invalid"
+		}*/
+	} else {
+		return "unknown sign up type"
 	}
 
 	if application.IsSignupItemVisible("Display name") {

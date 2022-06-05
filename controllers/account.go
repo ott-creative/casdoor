@@ -66,6 +66,17 @@ type RequestForm struct {
 	SamlResponse string `json:"samlResponse"`
 }
 
+type OTTSignUpRequest struct {
+	AppId            string  `json:"app_id"`                    // light-wallet for light-wallet app
+	Type             int     `json:"type"`                      // Register type, 0: phone, 1: email
+	Prefix           *string `json:"prefix,omitempty"`          // phone prefix (if type is 0)
+	Identity         string  `json:"identity"`                  // phone number or email address (if type is 0 or 1)
+	VerificationCode string  `json:"verification_code"`         // verification code according type
+	Pwd              string  `json:"pwd"`                       // password
+	PwdConfirm       string  `json:"pwd_confirm"`               // password confirm
+	InvitationCode   *string `json:"invitation_code,omitempty"` // invitation code
+}
+
 type Response struct {
 	Status string      `json:"status"`
 	Msg    string      `json:"msg"`
@@ -83,6 +94,10 @@ type OTTResponse struct {
 
 type OTTSendVerificationCodeResponse struct {
 	Timer int `json:"timer"` // seconds to wait before next request
+}
+
+type OTTRegisterResponse struct {
+	UserId string `json:"user_id"`
 }
 
 type HumanCheck struct {
@@ -230,50 +245,64 @@ func (c *ApiController) Signup() {
 
 func (c *ApiController) OTTSignup() {
 	if c.GetSessionUsername() != "" {
-		c.ResponseError("Please sign out first before signing up", c.GetSessionUsername())
+		c.OTTResponseError(OTT_CODE_NEED_SIGN_OUT, "Please sign out first before signing up")
 		return
 	}
 
-	var form RequestForm
+	var form OTTSignUpRequest
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &form)
 	if err != nil {
-		panic(err)
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, err.Error())
+		return
 	}
 
-	application := object.GetApplication(fmt.Sprintf("admin/%s", form.Application))
+	application := object.GetApplication(fmt.Sprintf("admin/%s", form.AppId))
 	if !application.EnableSignUp {
-		c.ResponseError("The application does not allow to sign up new account")
+		c.OTTResponseError(OTT_CODE_APPLICATION_NO_SIGNUP, "The application does not allow to sign up new account")
 		return
 	}
 
-	organization := object.GetOrganization(fmt.Sprintf("%s/%s", "admin", form.Organization))
-	msg := object.CheckUserSignup(application, organization, form.Username, form.Password, form.Name, form.FirstName, form.LastName, form.Email, form.Phone, form.Affiliation)
+	organization := object.GetOrganization(fmt.Sprintf("%s/%s", "admin", OTT_ORGANIZATION_ID))
+	msg := object.OTTCheckUserSignup(application, organization, form.Type, "", form.Pwd, "", "", "", form.Identity, form.Prefix, "")
 	if msg != "" {
-		c.ResponseError(msg)
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, msg)
 		return
 	}
 
-	if application.IsSignupItemVisible("Email") && application.GetSignupItemRule("Email") != "No verification" && form.Email != "" {
-		checkResult := object.CheckVerificationCode(form.Email, form.EmailCode)
-		if len(checkResult) != 0 {
-			c.ResponseError(fmt.Sprintf("Email: %s", checkResult))
-			return
-		}
-	}
-
+	var email = ""
+	var phone = ""
+	var region = ""
 	var checkPhone string
-	if application.IsSignupItemVisible("Phone") && form.Phone != "" {
-		checkPhone = fmt.Sprintf("+%s%s", form.PhonePrefix, form.Phone)
-		checkResult := object.CheckVerificationCode(checkPhone, form.PhoneCode)
-		if len(checkResult) != 0 {
-			c.ResponseError(fmt.Sprintf("Phone: %s", checkResult))
-			return
+	switch form.Type {
+	case 1:
+		if application.IsSignupItemVisible("Email") && application.GetSignupItemRule("Email") != "No verification" && form.Identity != "" {
+			checkResult := object.CheckVerificationCode(form.Identity, form.VerificationCode)
+			if len(checkResult) != 0 {
+				c.OTTResponseError(OTT_CODE_VERIFICATION_CODE_NOT_MATCH, fmt.Sprintf("Email: %s", checkResult))
+				return
+			}
+			email = form.Identity
 		}
+	case 0:
+		if application.IsSignupItemVisible("Phone") && form.Identity != "" && form.Prefix != nil && *form.Prefix != "" {
+			checkPhone = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+			checkResult := object.CheckVerificationCode(checkPhone, form.VerificationCode)
+			if len(checkResult) != 0 {
+				c.OTTResponseError(OTT_CODE_VERIFICATION_CODE_NOT_MATCH, fmt.Sprintf("Phone: %s", checkResult))
+				return
+			}
+			phone = checkPhone
+			region = *form.Prefix
+		}
+	default:
+		break
 	}
 
 	id := util.GenerateId()
-	if application.GetSignupItemRule("ID") == "Incremental" {
-		lastUser := object.GetLastUser(form.Organization)
+	// TODO concurrent issue
+	/*if application.GetSignupItemRule("ID") == "Incremental" {
+		// TODO: concurrent issue
+		lastUser := object.GetLastUser(OTT_ORGANIZATION_ID)
 
 		lastIdInt := -1
 		if lastUser != nil {
@@ -281,28 +310,25 @@ func (c *ApiController) OTTSignup() {
 		}
 
 		id = strconv.Itoa(lastIdInt + 1)
-	}
+	}*/
 
-	username := form.Username
-	if !application.IsSignupItemVisible("Username") {
-		username = id
-	}
+	username := id
 
 	user := &object.User{
-		Owner:             form.Organization,
+		Owner:             OTT_ORGANIZATION_ID,
 		Name:              username,
 		CreatedTime:       util.GetCurrentTime(),
 		Id:                id,
 		Type:              "normal-user",
-		Password:          form.Password,
-		DisplayName:       form.Name,
+		Password:          form.Pwd,
+		DisplayName:       id,
 		Avatar:            organization.DefaultAvatar,
-		Email:             form.Email,
-		Phone:             form.Phone,
+		Email:             email,
+		Phone:             phone,
 		Address:           []string{},
-		Affiliation:       form.Affiliation,
-		IdCard:            form.IdCard,
-		Region:            form.Region,
+		Affiliation:       "",
+		IdCard:            "",
+		Region:            region,
 		Score:             getInitScore(),
 		IsAdmin:           false,
 		IsGlobalAdmin:     false,
@@ -313,6 +339,10 @@ func (c *ApiController) OTTSignup() {
 		Karma:             0,
 	}
 
+	if form.InvitationCode != nil && *form.InvitationCode != "" {
+		user.Properties[OTT_USER_PROPERTY_INVITE_CODE] = *form.InvitationCode
+	}
+
 	if len(organization.Tags) > 0 {
 		tokens := strings.Split(organization.Tags[0], "|")
 		if len(tokens) > 0 {
@@ -320,17 +350,9 @@ func (c *ApiController) OTTSignup() {
 		}
 	}
 
-	if application.GetSignupItemRule("Display name") == "First, last" {
-		if form.FirstName != "" || form.LastName != "" {
-			user.DisplayName = fmt.Sprintf("%s %s", form.FirstName, form.LastName)
-			user.FirstName = form.FirstName
-			user.LastName = form.LastName
-		}
-	}
-
 	affected := object.AddUser(user)
 	if !affected {
-		c.ResponseError(fmt.Sprintf("Failed to create user, user information is invalid: %s", util.StructToJson(user)))
+		c.OTTResponseError(OTT_CODE_ADD_USER_FAILED, fmt.Sprintf("Failed to create user, user information is invalid: %s", util.StructToJson(user)))
 		return
 	}
 
@@ -341,7 +363,7 @@ func (c *ApiController) OTTSignup() {
 		c.SetSessionUsername(user.GetId())
 	}
 
-	object.DisableVerificationCode(form.Email)
+	object.DisableVerificationCode(form.Identity)
 	object.DisableVerificationCode(checkPhone)
 
 	record := object.NewRecord(c.Ctx)
@@ -352,7 +374,7 @@ func (c *ApiController) OTTSignup() {
 	userId := fmt.Sprintf("%s/%s", user.Owner, user.Name)
 	util.LogInfo(c.Ctx, "API: [%s] is signed up as new user", userId)
 
-	c.ResponseOk(userId)
+	c.OTTResponseOk(OTTRegisterResponse{UserId: userId})
 }
 
 // Logout

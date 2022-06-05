@@ -28,10 +28,23 @@ type TokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-type SendVerificationCodeRequest struct {
-	AppId      string `json:"app_id"`      // Application ID, for light wallet: admin/light-wallet
-	Purpose    int    `json:"purpose"`     // 0: register, 1: login, 2: reset password
-	Method     int    `json:"method"`      // 0: phone, 1: email
-	DestPrefix string `json:"dest_prefix"` // phone: +86 or other country code, email: will be ignored
-	Dest       string `json:"dest"`        // phone: phone number, email: email address
-}
+const OTT_ORGANIZATION_ID = "OTT"
+const OTT_USER_PROPERTY_INVITE_CODE = "invite_code"
+
+const OTT_TYPE_PHONE = 0
+const OTT_TYPE_EMAIL = 1
+
+const OTT_CODE_OK = 200
+const OTT_CODE_SERVICE_UNAVAILABLE = 201
+const OTT_CODE_NEED_LOGIN = 202
+const OTT_CODE_INVALID_PARAM = 203
+const OTT_CODE_LOGIN_EXPIRED = 204
+const OTT_CODE_ONLY_ONE_LOGIN = 205
+const OTT_CODE_SERVICE_EXCEPTION = 206
+const OTT_CODE_APPLICATION_NO_SIGNUP = 207
+const OTT_CODE_VERIFICATION_CODE_NOT_MATCH = 208
+const OTT_CODE_ADD_USER_FAILED = 209
+const OTT_CODE_NEED_SIGN_OUT = 210
+const OTT_CODE_INVALID_EMAIL = 302
+const OTT_CODE_INVALID_PHONE = 301
+const OTT_CODE_SEND_VERIFICATION_CODE_FAILED = 300
