@@ -116,7 +116,7 @@ func OTTCheckUserSignup(application *Application, organization *Organization, si
 	if organization == nil {
 		return "organization does not exist"
 	}
-
+	/* Temp disable this check, because we do not provide user name
 	if application.IsSignupItemVisible("Username") {
 		if len(username) <= 1 {
 			return "username must have at least 2 characters"
@@ -126,8 +126,8 @@ func OTTCheckUserSignup(application *Application, organization *Organization, si
 			return "username already exists"
 		}
 	}
-
-	if len(password) <= 8 {
+	*/
+	if len(password) < 8 {
 		return "password must have at least 8 characters"
 	}
 
@@ -156,6 +156,7 @@ func OTTCheckUserSignup(application *Application, organization *Organization, si
 		return "unknown sign up type"
 	}
 
+	/* Temp disable
 	if application.IsSignupItemVisible("Display name") {
 		if application.GetSignupItemRule("Display name") == "First, last" && (firstName != "" || lastName != "") {
 			if firstName == "" {
@@ -172,7 +173,7 @@ func OTTCheckUserSignup(application *Application, organization *Organization, si
 				}
 			}
 		}
-	}
+	}*/
 
 	if application.IsSignupItemVisible("Affiliation") {
 		if affiliation == "" {

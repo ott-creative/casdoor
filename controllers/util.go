@@ -37,7 +37,7 @@ func (c *ApiController) ResponseOk(data ...interface{}) {
 	c.ServeJSON()
 }
 
-func (c *ApiController) OTTResponseOk(data ...interface{}) {
+func (c *ApiController) OTTResponseOk(data interface{}) {
 	resp := OTTResponse{Code: OTT_CODE_OK, Msg: "", Body: data}
 	c.Data["json"] = resp
 	c.ServeJSON()

@@ -25,11 +25,11 @@ import (
 )
 
 type SendVerificationCodeRequest struct {
-	AppId      string `json:"app_id"`      // Application ID, for light wallet: light-wallet
-	Purpose    int    `json:"purpose"`     // 0: register, 1: login, 2: reset password
-	Method     int    `json:"method"`      // 0: phone, 1: email
-	DestPrefix string `json:"dest_prefix"` // phone: +86 or other country code, email: will be ignored
-	Dest       string `json:"dest"`        // phone: phone number, email: email address
+	AppId   string `json:"app_id"`  // Application ID, for light wallet: light-wallet
+	Purpose int    `json:"purpose"` // 0: register, 1: login, 2: reset password
+	Type    int    `json:"type"`    // 0: phone, 1: email
+	Prefix  string `json:"prefix"`  // phone: 86 or other country code, email: will be ignored
+	Dest    string `json:"dest"`    // phone: phone number, email: email address
 }
 
 func (c *ApiController) getCurrentUser() *object.User {
@@ -152,7 +152,7 @@ func (c *ApiController) OTTSendVerificationCode() {
 
 	sendResp := errors.New("send verification code failed")
 
-	switch svcRequest.Method {
+	switch svcRequest.Type {
 	case 1: // email
 		if !util.IsEmailValid(svcRequest.Dest) {
 			c.OTTResponseError(OTT_CODE_INVALID_EMAIL, "Invalid Email address")
@@ -171,13 +171,13 @@ func (c *ApiController) OTTSendVerificationCode() {
 		}
 
 		// TODO: validate international phone number
-		if svcRequest.DestPrefix == "+86" && !util.IsPhoneCnValid(dest) {
+		if svcRequest.Prefix == "+86" && !util.IsPhoneCnValid(dest) {
 			c.OTTResponseError(OTT_CODE_INVALID_PHONE, "Invalid phone number")
 			return
 		}
 
 		// OTT Temp disable for Aliyun SMS test
-		dest = fmt.Sprintf("+%s%s", svcRequest.DestPrefix, svcRequest.Dest)
+		dest = fmt.Sprintf("+%s%s", svcRequest.Prefix, svcRequest.Dest)
 
 		provider := application.GetSmsProvider()
 		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)

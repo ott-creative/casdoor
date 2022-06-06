@@ -73,7 +73,6 @@ type OTTSignUpRequest struct {
 	Identity         string  `json:"identity"`                  // phone number or email address (if type is 0 or 1)
 	VerificationCode string  `json:"verification_code"`         // verification code according type
 	Pwd              string  `json:"pwd"`                       // password
-	PwdConfirm       string  `json:"pwd_confirm"`               // password confirm
 	InvitationCode   *string `json:"invitation_code,omitempty"` // invitation code
 }
 
