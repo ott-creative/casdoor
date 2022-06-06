@@ -31,12 +31,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type CodeResponse struct {
+	Code string `json:"code"`
+}
+
 func codeToResponse(code *object.Code) *Response {
 	if code.Code == "" {
 		return &Response{Status: "error", Msg: code.Message, Data: code.Code}
 	}
 
 	return &Response{Status: "ok", Msg: "", Data: code.Code}
+}
+
+func ottCodeToResponse(code *object.Code) *OTTResponse {
+	if code.Code == "" {
+		return &OTTResponse{Code: OTT_CODE_LOGIN_FAILED, Msg: code.Message}
+	}
+
+	return &OTTResponse{Code: OTT_CODE_OK, Body: CodeResponse{Code: code.Code}}
 }
 
 func tokenToResponse(token *object.Token) *Response {
@@ -114,6 +126,39 @@ func (c *ApiController) HandleLoggedIn(application *object.Application, user *ob
 
 	// if user did not check auto signin
 	if resp.Status == "ok" && !form.AutoSignin {
+		timestamp := time.Now().Unix()
+		timestamp += 3600 * 24
+		c.SetSessionData(&SessionData{
+			ExpireTime: timestamp,
+		})
+	}
+
+	return resp
+}
+
+func (c *ApiController) OTTHandleLoggedIn(application *object.Application, user *object.User, form *OTTLoginRequest) (resp *OTTResponse) {
+	userId := user.GetId()
+	clientId := form.ClientId
+	scope := "read"
+	state := "lw"
+	nonce := c.Input().Get("nonce")
+	challengeMethod := c.Input().Get("code_challenge_method")
+	codeChallenge := c.Input().Get("code_challenge")
+
+	if challengeMethod != "S256" && challengeMethod != "null" && challengeMethod != "" {
+		c.ResponseError("Challenge method should be S256")
+		return
+	}
+	code := object.GetOAuthCode(userId, clientId, "code", "", scope, state, nonce, codeChallenge, c.Ctx.Request.Host)
+	resp = ottCodeToResponse(code)
+
+	if application.EnableSigninSession || application.HasPromptPage() {
+		// The prompt page needs the user to be signed in
+		c.SetSessionUsername(userId)
+	}
+
+	// if user did not check auto signin
+	if resp.Code == OTT_CODE_OK && !form.KeepLogin {
 		timestamp := time.Now().Unix()
 		timestamp += 3600 * 24
 		c.SetSessionData(&SessionData{
@@ -458,6 +503,127 @@ func (c *ApiController) Login() {
 
 			user := c.getCurrentUser()
 			resp = c.HandleLoggedIn(application, user, &form)
+
+			record := object.NewRecord(c.Ctx)
+			record.Organization = application.Organization
+			record.User = user.Name
+			util.SafeGoroutine(func() { object.AddRecord(record) })
+		} else {
+			c.ResponseError(fmt.Sprintf("unknown authentication type (not password or provider), form = %s", util.StructToJson(form)))
+			return
+		}
+	}
+
+	c.Data["json"] = resp
+	c.ServeJSON()
+}
+
+func (c *ApiController) OTTLogin() {
+	resp := &OTTResponse{}
+
+	var form OTTLoginRequest
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &form)
+	if err != nil {
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, err.Error())
+		return
+	}
+
+	if form.Identity != "" {
+		if c.GetSessionUsername() != "" {
+			c.OTTResponseError(OTT_CODE_NEED_SIGN_OUT, "Please sign out first before signing in")
+			return
+		}
+
+		var user *object.User
+		var msg string
+
+		if form.Password == nil || *form.Password == "" {
+			// check if contains a verification code
+			if form.VerificationCode == nil || *form.VerificationCode == "" {
+				c.OTTResponseError(OTT_CODE_INVALID_PARAM, "password and verification code both empty")
+				return
+			}
+			var verificationCodeType string
+			var checkResult string
+			user = object.GetUserByFields(OTT_ORGANIZATION_ID, form.Identity)
+
+			// check result through Email or Phone
+			if strings.Contains(form.Identity, "@") {
+				verificationCodeType = "email"
+				if user != nil && util.GetMaskedEmail(user.Email) == form.Identity {
+					form.Identity = user.Email
+				}
+				checkResult = object.CheckVerificationCode(form.Identity, *form.VerificationCode)
+			} else {
+				verificationCodeType = "phone"
+				if form.Prefix == nil || len(*form.Prefix) == 0 {
+					responseText := fmt.Sprintf("%s%s", verificationCodeType, "No phone prefix")
+					c.OTTResponseError(OTT_CODE_INVALID_PHONE, responseText)
+					return
+				}
+				if user != nil && util.GetMaskedPhone(user.Phone) == form.Identity {
+					form.Identity = user.Phone
+				}
+				checkPhone := fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+				checkResult = object.CheckVerificationCode(checkPhone, *form.VerificationCode)
+			}
+			if len(checkResult) != 0 {
+				responseText := fmt.Sprintf("%s%s", verificationCodeType, checkResult)
+				c.OTTResponseError(OTT_CODE_VERIFICATION_CODE_NOT_MATCH, responseText)
+				return
+			}
+
+			// disable the verification code
+			if strings.Contains(form.Identity, "@") {
+				object.DisableVerificationCode(form.Identity)
+			} else {
+				object.DisableVerificationCode(fmt.Sprintf("+%s%s", *form.Prefix, form.Identity))
+			}
+
+			if form.Prefix != nil && len(*form.Prefix) != 0 {
+				form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+			}
+			user = object.GetUserByFields(OTT_ORGANIZATION_ID, form.Identity)
+			if user == nil {
+				c.OTTResponseError(OTT_CODE_USER_NOT_EXIST, fmt.Sprintf("The user: %s/%s doesn't exist", OTT_ORGANIZATION_ID, form.Identity))
+				return
+			}
+		} else {
+			password := *form.Password
+			// check if user login through phone number
+			if form.Prefix != nil && len(*form.Prefix) != 0 {
+				form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+			}
+			user, msg = object.CheckUserPassword(OTT_ORGANIZATION_ID, form.Identity, password)
+		}
+
+		if msg != "" {
+			resp = &OTTResponse{Code: OTT_CODE_LOGIN_FAILED, Msg: msg}
+		} else {
+			application := object.GetApplication(fmt.Sprintf("admin/%s", form.AppId))
+			if application == nil {
+				c.OTTResponseError(OTT_CODE_INVALID_PARAM, fmt.Sprintf("The application: %s does not exist", form.AppId))
+				return
+			}
+
+			resp = c.OTTHandleLoggedIn(application, user, &form)
+
+			record := object.NewRecord(c.Ctx)
+			record.Organization = application.Organization
+			record.User = user.Name
+			util.SafeGoroutine(func() { object.AddRecord(record) })
+		}
+	} else {
+		if c.GetSessionUsername() != "" {
+			// user already signed in to Casdoor, so let the user click the avatar button to do the quick sign-in
+			application := object.GetApplication(fmt.Sprintf("admin/%s", form.AppId))
+			if application == nil {
+				c.ResponseError(fmt.Sprintf("The application: %s does not exist", form.AppId))
+				return
+			}
+
+			user := c.getCurrentUser()
+			resp = c.OTTHandleLoggedIn(application, user, &form)
 
 			record := object.NewRecord(c.Ctx)
 			record.Organization = application.Organization

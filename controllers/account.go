@@ -66,13 +66,23 @@ type RequestForm struct {
 	SamlResponse string `json:"samlResponse"`
 }
 
+type OTTLoginRequest struct {
+	AppId            string  `json:"app_id"`                      // light-wallet for light-wallet app
+	ClientId         string  `json:"client_id"`                   // light-wallet SSO client ID
+	Identity         string  `json:"identity"`                    // phone number or email address
+	Prefix           *string `json:"prefix,omitempty"`            // phone prefix (if use phone login)
+	Password         *string `json:"password,omitempty"`          // password (if use password login)
+	VerificationCode *string `json:"verification_code,omitempty"` // verification code according type
+	KeepLogin        bool    `json:"keep_login"`                  // if keep login
+}
+
 type OTTSignUpRequest struct {
 	AppId            string  `json:"app_id"`                    // light-wallet for light-wallet app
 	Type             int     `json:"type"`                      // Register type, 0: phone, 1: email
 	Prefix           *string `json:"prefix,omitempty"`          // phone prefix (if type is 0)
 	Identity         string  `json:"identity"`                  // phone number or email address (if type is 0 or 1)
 	VerificationCode string  `json:"verification_code"`         // verification code according type
-	Pwd              string  `json:"pwd"`                       // password
+	Password         string  `json:"password"`                  // password
 	InvitationCode   *string `json:"invitation_code,omitempty"` // invitation code
 }
 
@@ -262,7 +272,7 @@ func (c *ApiController) OTTSignup() {
 	}
 
 	organization := object.GetOrganization(fmt.Sprintf("%s/%s", "admin", OTT_ORGANIZATION_ID))
-	msg := object.OTTCheckUserSignup(application, organization, form.Type, "", form.Pwd, "", "", "", form.Identity, form.Prefix, "")
+	msg := object.OTTCheckUserSignup(application, organization, form.Type, "", form.Password, "", "", "", form.Identity, form.Prefix, "")
 	if msg != "" {
 		c.OTTResponseError(OTT_CODE_INVALID_PARAM, msg)
 		return
@@ -319,7 +329,7 @@ func (c *ApiController) OTTSignup() {
 		CreatedTime:       util.GetCurrentTime(),
 		Id:                id,
 		Type:              "normal-user",
-		Password:          form.Pwd,
+		Password:          form.Password,
 		DisplayName:       id,
 		Avatar:            organization.DefaultAvatar,
 		Email:             email,
@@ -395,6 +405,16 @@ func (c *ApiController) Logout() {
 		return
 	}
 	c.ResponseOk(user, application.HomepageUrl)
+}
+
+func (c *ApiController) OTTLogout() {
+	user := c.GetSessionUsername()
+	util.LogInfo(c.Ctx, "API: [%s] logged out", user)
+
+	c.SetSessionUsername("")
+	c.SetSessionData(nil)
+
+	c.OTTResponseOk(nil)
 }
 
 // GetAccount

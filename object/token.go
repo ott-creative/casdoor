@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/casdoor/casdoor/idp"
@@ -238,6 +237,7 @@ func CheckOAuthLogin(clientId string, responseType string, redirectUri string, s
 		return "Invalid client_id", nil
 	}
 
+	/* TODO: Temp disable
 	validUri := false
 	for _, tmpUri := range application.RedirectUris {
 		if strings.Contains(redirectUri, tmpUri) {
@@ -247,7 +247,7 @@ func CheckOAuthLogin(clientId string, responseType string, redirectUri string, s
 	}
 	if !validUri {
 		return fmt.Sprintf("Redirect URI: \"%s\" doesn't exist in the allowed Redirect URI list", redirectUri), application
-	}
+	}*/
 
 	// Mask application for /api/get-app-login
 	application.ClientSecret = ""
@@ -310,7 +310,6 @@ func GetOAuthCode(userId string, clientId string, responseType string, redirectU
 		Code:    token.Code,
 	}
 }
-
 
 func GetOAuthToken(grantType string, clientId string, clientSecret string, code string, verifier string, scope string, username string, password string, host string, tag string, avatar string) *TokenWrapper {
 	var errString string

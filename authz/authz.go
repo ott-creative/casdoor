@@ -77,8 +77,10 @@ p, *, *, POST, /api/signup, *, *
 p, *, *, POST, /api/ott/signup, *, *
 p, *, *, POST, /api/get-email-and-phone, *, *
 p, *, *, POST, /api/login, *, *
+p, *, *, POST, /api/ott/login, *, *
 p, *, *, GET, /api/get-app-login, *, *
 p, *, *, POST, /api/logout, *, *
+p, *, *, POST, /api/ott/logout, *, *
 p, *, *, GET, /api/get-account, *, *
 p, *, *, GET, /api/userinfo, *, *
 p, *, *, *, /api/login/oauth, *, *
