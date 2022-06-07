@@ -76,6 +76,14 @@ type OTTLoginRequest struct {
 	KeepLogin        bool    `json:"keep_login"`                  // if keep login
 }
 
+type OTTResetPwdRequest struct {
+	AppId            string  `json:"app_id"`            // light-wallet for light-wallet app
+	Identity         string  `json:"identity"`          // phone number or email address
+	Prefix           *string `json:"prefix,omitempty"`  // phone prefix (if use phone login)
+	Password         string  `json:"password"`          // password (if use password login)
+	VerificationCode string  `json:"verification_code"` // verification code according type
+}
+
 type OTTSignUpRequest struct {
 	AppId            string  `json:"app_id"`                    // light-wallet for light-wallet app
 	Type             int     `json:"type"`                      // Register type, 0: phone, 1: email

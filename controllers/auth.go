@@ -643,6 +643,84 @@ func (c *ApiController) OTTLogin() {
 	c.ServeJSON()
 }
 
+func (c *ApiController) OTTResetPassword() {
+	resp := &OTTResponse{}
+
+	var form OTTResetPwdRequest
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &form)
+	if err != nil {
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, err.Error())
+		return
+	}
+
+	if form.Identity == "" {
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, "identity is empty")
+		return
+	}
+
+	if len(form.Password) < 8 {
+		c.ResponseError("New password must have at least 8 characters")
+		return
+	}
+
+	var user *object.User
+
+	// check if contains a verification code
+	if form.VerificationCode == "" {
+		c.OTTResponseError(OTT_CODE_INVALID_PARAM, "verification code empty")
+		return
+	}
+	var verificationCodeType string
+	var checkResult string
+
+	if form.Prefix != nil && len(*form.Prefix) != 0 {
+		form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+	}
+
+	user = object.GetUserByFields(OTT_ORGANIZATION_ID, form.Identity)
+	if user == nil {
+		c.OTTResponseError(OTT_CODE_USER_NOT_EXIST, fmt.Sprintf("The user: %s/%s doesn't exist", OTT_ORGANIZATION_ID, form.Identity))
+		return
+	}
+
+	// check result through Email or Phone
+	if strings.Contains(form.Identity, "@") {
+		verificationCodeType = "email"
+		if user != nil && util.GetMaskedEmail(user.Email) == form.Identity {
+			form.Identity = user.Email
+		}
+		checkResult = object.CheckVerificationCode(form.Identity, form.VerificationCode)
+	} else {
+		verificationCodeType = "phone"
+		if form.Prefix == nil || len(*form.Prefix) == 0 {
+			responseText := fmt.Sprintf("%s%s", verificationCodeType, "No phone prefix")
+			c.OTTResponseError(OTT_CODE_INVALID_PHONE, responseText)
+			return
+		}
+
+		checkResult = object.CheckVerificationCode(form.Identity, form.VerificationCode)
+	}
+	if len(checkResult) != 0 {
+		responseText := fmt.Sprintf("%s%s", verificationCodeType, checkResult)
+		c.OTTResponseError(OTT_CODE_VERIFICATION_CODE_NOT_MATCH, responseText)
+		return
+	}
+
+	// disable the verification code
+	object.DisableVerificationCode(form.Identity)
+
+	// reset password
+	user.Password = form.Password
+	if object.SetUserField(user, "password", form.Password) {
+		resp = &OTTResponse{Code: OTT_CODE_OK}
+	} else {
+		resp = &OTTResponse{Code: OTT_CODE_RESET_PASSWORD_FAILED, Msg: "Update DB failed"}
+	}
+
+	c.Data["json"] = resp
+	c.ServeJSON()
+}
+
 func (c *ApiController) GetSamlLogin() {
 	providerId := c.Input().Get("id")
 	relayState := c.Input().Get("relayState")
