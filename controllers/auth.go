@@ -258,7 +258,11 @@ func (c *ApiController) Login() {
 				if user != nil && util.GetMaskedPhone(user.Phone) == form.Username {
 					form.Username = user.Phone
 				}
-				checkPhone := fmt.Sprintf("+%s%s", form.PhonePrefix, form.Username)
+				// check if Username start with +
+				checkPhone := form.Username
+				if !strings.HasPrefix(form.Username, "+") {
+					checkPhone = fmt.Sprintf("+%s%s", form.PhonePrefix, form.Username)
+				}
 				checkResult = object.CheckVerificationCode(checkPhone, form.Code)
 			}
 			if len(checkResult) != 0 {

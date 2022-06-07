@@ -104,18 +104,21 @@ func (c *ApiController) SendVerificationCode() {
 		if user != nil && util.GetMaskedPhone(user.Phone) == dest {
 			dest = user.Phone
 		}
+		/* TODO:
 		if !util.IsPhoneCnValid(dest) {
 			c.ResponseError("Invalid phone number")
 			return
-		}
+		}*/
 		org := object.GetOrganization(orgId)
 		if org == nil {
 			c.ResponseError("Missing parameter.")
 			return
 		}
 
-		// OTT Temp disable for Aliyun SMS test
-		//dest = fmt.Sprintf("+%s%s", org.PhonePrefix, dest)
+		// check if dest start with +
+		if !strings.HasPrefix(dest, "+") {
+			dest = fmt.Sprintf("+%s%s", org.PhonePrefix, dest)
+		}
 		provider := application.GetSmsProvider()
 		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)
 	}
@@ -176,7 +179,6 @@ func (c *ApiController) OTTSendVerificationCode() {
 			return
 		}
 
-		// OTT Temp disable for Aliyun SMS test
 		dest = fmt.Sprintf("+%s%s", svcRequest.Prefix, svcRequest.Dest)
 
 		provider := application.GetSmsProvider()

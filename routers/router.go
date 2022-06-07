@@ -48,7 +48,7 @@ func initAPI() {
 	beego.Router("/api/signup", &controllers.ApiController{}, "POST:Signup")
 	beego.Router("/api/ott/signup", &controllers.ApiController{}, "POST:OTTSignup")
 	beego.Router("/api/login", &controllers.ApiController{}, "POST:Login")
-	beego.Router("/api/ott/login", &controllers.ApiController{}, "POST:OTTLogin")
+	beego.Router("/api/ott/auth-code", &controllers.ApiController{}, "POST:OTTLogin")
 	beego.Router("/api/get-app-login", &controllers.ApiController{}, "GET:GetApplicationLogin")
 	beego.Router("/api/logout", &controllers.ApiController{}, "POST:Logout")
 	beego.Router("/api/ott/logout", &controllers.ApiController{}, "POST:OTTLogout")
