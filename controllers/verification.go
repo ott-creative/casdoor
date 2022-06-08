@@ -188,7 +188,7 @@ func (c *ApiController) OTTSendVerificationCode() {
 	if sendResp != nil {
 		c.Data["json"] = OTTResponse{Code: OTT_CODE_SEND_VERIFICATION_CODE_FAILED, Msg: sendResp.Error()}
 	} else {
-		c.Data["json"] = OTTResponse{Code: OTT_CODE_OK, Body: OTTSendVerificationCodeResponse{Timer: 60}}
+		c.Data["json"] = OTTResponse{Code: OTT_CODE_OK, Data: OTTSendVerificationCodeResponse{Timer: 60}}
 	}
 
 	c.ServeJSON()

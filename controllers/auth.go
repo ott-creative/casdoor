@@ -48,7 +48,7 @@ func ottCodeToResponse(code *object.Code) *OTTResponse {
 		return &OTTResponse{Code: OTT_CODE_LOGIN_FAILED, Msg: code.Message}
 	}
 
-	return &OTTResponse{Code: OTT_CODE_OK, Body: CodeResponse{Code: code.Code}}
+	return &OTTResponse{Code: OTT_CODE_OK, Data: CodeResponse{Code: code.Code}}
 }
 
 func tokenToResponse(token *object.Token) *Response {

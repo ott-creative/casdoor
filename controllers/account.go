@@ -106,7 +106,7 @@ type Response struct {
 type OTTResponse struct {
 	Code int         `json:"code"`
 	Msg  string      `json:"msg"`
-	Body interface{} `json:"body"`
+	Data interface{} `json:"data"`
 }
 
 type OTTSendVerificationCodeResponse struct {
