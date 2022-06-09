@@ -146,7 +146,7 @@ func OTTCheckUserSignup(application *Application, organization *Organization, si
 			return "phone cannot be empty"
 		}
 
-		if HasUserByField(organization.Name, "phone", fmt.Sprintf("%s%s", *prefix, identity)) {
+		if HasUserByField(organization.Name, "phone", util.MakeInternationalPhone(*prefix, identity)) {
 			return "phone already exists"
 		} /* TODO: check international phone number
 		else if !util.IsPhoneCnValid(*phone) {

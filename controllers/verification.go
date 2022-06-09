@@ -179,7 +179,7 @@ func (c *ApiController) OTTSendVerificationCode() {
 			return
 		}*/
 
-		dest = fmt.Sprintf("+%s%s", *svcRequest.Prefix, svcRequest.Dest)
+		dest = util.MakeInternationalPhone(*svcRequest.Prefix, svcRequest.Dest)
 
 		provider := application.GetSmsProvider()
 		sendResp = object.SendVerificationCodeToPhone(organization, user, provider, remoteAddr, dest)
@@ -225,7 +225,7 @@ func (c *ApiController) ResetEmailOrPhone() {
 		if org != nil && org.PhonePrefix != "" {
 			phonePrefix = org.PhonePrefix
 		}
-		checkDest = fmt.Sprintf("+%s%s", phonePrefix, dest)
+		checkDest = util.MakeInternationalPhone(phonePrefix, dest)
 	}
 	if ret := object.CheckVerificationCode(checkDest, code); len(ret) != 0 {
 		c.ResponseError(ret)

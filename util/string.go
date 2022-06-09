@@ -235,3 +235,10 @@ func maskString(str string) string {
 		return fmt.Sprintf("%c%s%c", str[0], strings.Repeat("*", len(str)-2), str[len(str)-1])
 	}
 }
+
+func MakeInternationalPhone(prefix string, phone string) string {
+	if strings.HasPrefix(prefix, "+") {
+		return fmt.Sprintf("%s%s", prefix, phone)
+	}
+	return fmt.Sprintf("+%s%s", prefix, phone)
+}

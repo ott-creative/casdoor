@@ -568,7 +568,7 @@ func (c *ApiController) OTTLogin() {
 				if user != nil && util.GetMaskedPhone(user.Phone) == form.Identity {
 					form.Identity = user.Phone
 				}
-				checkPhone := fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+				checkPhone := util.MakeInternationalPhone(*form.Prefix, form.Identity)
 				checkResult = object.CheckVerificationCode(checkPhone, *form.VerificationCode)
 			}
 			if len(checkResult) != 0 {
@@ -581,11 +581,11 @@ func (c *ApiController) OTTLogin() {
 			if strings.Contains(form.Identity, "@") {
 				object.DisableVerificationCode(form.Identity)
 			} else {
-				object.DisableVerificationCode(fmt.Sprintf("+%s%s", *form.Prefix, form.Identity))
+				object.DisableVerificationCode(util.MakeInternationalPhone(*form.Prefix, form.Identity))
 			}
 
 			if form.Prefix != nil && len(*form.Prefix) != 0 {
-				form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+				form.Identity = util.MakeInternationalPhone(*form.Prefix, form.Identity)
 			}
 			user = object.GetUserByFields(OTT_ORGANIZATION_ID, form.Identity)
 			if user == nil {
@@ -596,7 +596,7 @@ func (c *ApiController) OTTLogin() {
 			password := *form.Password
 			// check if user login through phone number
 			if form.Prefix != nil && len(*form.Prefix) != 0 {
-				form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+				form.Identity = util.MakeInternationalPhone(*form.Prefix, form.Identity)
 			}
 			user, msg = object.CheckUserPassword(OTT_ORGANIZATION_ID, form.Identity, password)
 		}
@@ -674,7 +674,7 @@ func (c *ApiController) OTTResetPassword() {
 	var checkResult string
 
 	if form.Prefix != nil && len(*form.Prefix) != 0 {
-		form.Identity = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+		form.Identity = util.MakeInternationalPhone(*form.Prefix, form.Identity)
 	}
 
 	user = object.GetUserByFields(OTT_ORGANIZATION_ID, form.Identity)

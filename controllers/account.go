@@ -302,7 +302,7 @@ func (c *ApiController) OTTSignup() {
 		}
 	case 0:
 		if application.IsSignupItemVisible("Phone") && form.Identity != "" && form.Prefix != nil && *form.Prefix != "" {
-			checkPhone = fmt.Sprintf("+%s%s", *form.Prefix, form.Identity)
+			checkPhone = util.MakeInternationalPhone(*form.Prefix, form.Identity)
 			checkResult := object.CheckVerificationCode(checkPhone, form.VerificationCode)
 			if len(checkResult) != 0 {
 				c.OTTResponseError(OTT_CODE_VERIFICATION_CODE_NOT_MATCH, fmt.Sprintf("Phone: %s", checkResult))
