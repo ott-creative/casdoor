@@ -30,6 +30,8 @@ type TokenRequest struct {
 
 const OTT_ORGANIZATION_ID = "OTT"
 const OTT_USER_PROPERTY_INVITE_CODE = "invite_code"
+const OTT_USER_PROPERTY_COUNTRY_CODE = "country_code"
+const OTT_USER_PROPERTY_SOURCE = "source"
 
 const OTT_TYPE_PHONE = 0
 const OTT_TYPE_EMAIL = 1

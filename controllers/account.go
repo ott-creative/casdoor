@@ -92,6 +92,7 @@ type OTTSignUpRequest struct {
 	VerificationCode string  `json:"verification_code"`         // verification code according type
 	Password         string  `json:"password"`                  // password
 	InvitationCode   *string `json:"invitation_code,omitempty"` // invitation code
+	Source           *string `json:"source,omitempty"`          // source
 }
 
 type Response struct {
@@ -358,6 +359,19 @@ func (c *ApiController) OTTSignup() {
 
 	if form.InvitationCode != nil && *form.InvitationCode != "" {
 		user.Properties[OTT_USER_PROPERTY_INVITE_CODE] = *form.InvitationCode
+	}
+
+	if form.Prefix != nil && *form.Prefix != "" {
+		// check if start with +
+		if !strings.HasPrefix(*form.Prefix, "+") {
+			user.Properties[OTT_USER_PROPERTY_COUNTRY_CODE] = "+" + *form.Prefix
+		} else {
+			user.Properties[OTT_USER_PROPERTY_COUNTRY_CODE] = *form.Prefix
+		}
+	}
+
+	if form.Source != nil && *form.Source != "" {
+		user.Properties[OTT_USER_PROPERTY_SOURCE] = *form.Source
 	}
 
 	if len(organization.Tags) > 0 {
